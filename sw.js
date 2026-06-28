@@ -1,4 +1,4 @@
-const CACHE_NAME = 'caderno-campo-v1';
+const CACHE_NAME = 'caderno-campo-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -23,6 +23,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

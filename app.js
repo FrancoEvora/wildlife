@@ -15,8 +15,11 @@
   let timerInterval = null;
   let returnInterval = null;
   let mediaDbPromise = null;
-  let siren = { ctx: null, oscillator: null, gain: null, interval: null, active: false };
-  let torch = { stream: null, track: null, active: false };
+  let siren = { ctx: null, oscillators: [], gain: null, pulseInterval: null, active: false };
+  let torch = { stream: null, track: null, active: false, interval: null, torchOn: false };
+  let mapState = { map: null, currentMarker: null, trailLayer: null, observationLayer: null, riskLayer: null, hasTiles: false };
+  let leafletLoadPromise = null;
+  let mediaViewerObjectUrl = '';
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -27,6 +30,9 @@
     bindRiskControls();
     bindSafetyControls();
     bindPortfolioControls();
+    bindEquipmentControls();
+    bindMapControls();
+    bindMediaViewerControls();
     bindBackupControls();
     bindStatusWatchers();
     registerServiceWorker();
@@ -35,6 +41,17 @@
     renderAll();
     refreshGpsOnce();
     startReturnChecker();
+  }
+
+  function defaultEquipment() {
+    const cameras = ['Celular', 'iPhone', 'Samsung Galaxy', 'Canon EOS R/RF', 'Canon DSLR', 'Nikon Z', 'Nikon DSLR', 'Sony Alpha', 'Fujifilm X/GFX', 'OM System/Olympus', 'GoPro/action cam', 'Drone'];
+    const lenses = ['Lente do celular', '24-70mm', '70-200mm', '100-400mm', '100-500mm', '150-600mm', '200-500mm', '300mm fixa', '400mm fixa', '500mm fixa', '600mm fixa', 'Macro 90/100/105mm'];
+    const accessories = ['Nenhum', 'Tripé', 'Monopé', 'Binóculo', 'Gravador de áudio', 'Flash', 'Teleconverter 1.4x', 'Teleconverter 2x', 'Power bank'];
+    return [
+      ...cameras.map((name) => ({ id: uid('eq-camera'), category: 'Câmera', name })),
+      ...lenses.map((name) => ({ id: uid('eq-lens'), category: 'Lente', name })),
+      ...accessories.map((name) => ({ id: uid('eq-accessory'), category: 'Acessório', name }))
+    ];
   }
 
   function defaultState() {
@@ -49,7 +66,8 @@
         emergencyPhone: '',
         trustedContacts: '',
         medicalInfo: '',
-        returnAlertSentFor: ''
+        returnAlertSentFor: '',
+        equipment: defaultEquipment()
       }
     };
   }
@@ -58,10 +76,16 @@
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (!parsed || typeof parsed !== 'object') return defaultState();
+      const defaults = defaultState();
+      const settings = { ...defaults.settings, ...(parsed.settings || {}) };
+      if (!Array.isArray(settings.equipment) || !settings.equipment.length) settings.equipment = defaultEquipment();
+      settings.equipment = settings.equipment
+        .filter((item) => item && item.name)
+        .map((item) => ({ id: item.id || uid('eq'), category: item.category || 'Acessório', name: item.name }));
       return {
-        ...defaultState(),
+        ...defaults,
         ...parsed,
-        settings: { ...defaultState().settings, ...(parsed.settings || {}) },
+        settings,
         trails: Array.isArray(parsed.trails) ? parsed.trails : [],
         observations: Array.isArray(parsed.observations) ? parsed.observations : [],
         risks: Array.isArray(parsed.risks) ? parsed.risks : [],
@@ -94,6 +118,29 @@
     const activeButton = document.querySelector(`.nav-btn[data-target="${name}"]`);
     if (activeButton) activeButton.classList.add('active');
     if (name === 'seguranca') updateEmergencyMessage();
+    if (name === 'mapa') {
+      initMapIfNeeded();
+      renderMap();
+      setTimeout(() => mapState.map?.invalidateSize(), 120);
+    }
+  }
+
+  function bindMapControls() {
+    const locateButton = $('btnLocateOnMap');
+    const fitButton = $('btnFitMap');
+    const openButton = $('btnOpenGoogleMaps');
+    const gpxButton = $('btnExportGpx');
+
+    if (locateButton) locateButton.addEventListener('click', () => {
+      refreshGpsOnce();
+      showScreen('mapa');
+      setTimeout(() => {
+        if (currentLocation && mapState.map) mapState.map.setView([currentLocation.lat, currentLocation.lng], 16);
+      }, 500);
+    });
+    if (fitButton) fitButton.addEventListener('click', fitMapToContent);
+    if (openButton) openButton.addEventListener('click', openBestLocationInMaps);
+    if (gpxButton) gpxButton.addEventListener('click', exportGpx);
   }
 
   function bindTrailControls() {
@@ -154,6 +201,8 @@
     });
     $('btnUseLocationObs').addEventListener('click', () => useCurrentLocationFor('obs'));
     $('obsSearch').addEventListener('input', renderObservations);
+    const csvButton = $('btnExportCsv');
+    if (csvButton) csvButton.addEventListener('click', exportCsv);
   }
 
   async function saveObservation() {
@@ -249,6 +298,35 @@
     });
   }
 
+  function bindEquipmentControls() {
+    const form = $('equipmentForm');
+    const list = $('equipmentList');
+    if (!form || !list) return;
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      addEquipment();
+    });
+    list.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-delete-equipment]');
+      if (!button) return;
+      deleteEquipment(button.dataset.deleteEquipment);
+    });
+  }
+
+  function bindMediaViewerControls() {
+    const closeButton = $('btnCloseMedia');
+    const modal = $('mediaModal');
+    if (closeButton) closeButton.addEventListener('click', closeMediaViewer);
+    if (modal) {
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeMediaViewer();
+      });
+    }
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !$('mediaModal')?.classList.contains('hidden')) closeMediaViewer();
+    });
+  }
+
   async function addProfessionalPhoto() {
     const obsId = $('portfolioObservation').value;
     const observation = state.observations.find((item) => item.id === obsId);
@@ -266,8 +344,9 @@
     observation.professionalPhotos = observation.professionalPhotos || [];
     observation.professionalPhotos.push({
       ...media,
-      cameraModel: $('cameraModel').value.trim(),
-      lensModel: $('lensModel').value.trim(),
+      cameraModel: getEquipmentValue('cameraModel', 'cameraOther'),
+      lensModel: getEquipmentValue('lensModel', 'lensOther'),
+      accessoryUsed: getEquipmentValue('accessoryUsed', 'accessoryOther'),
       focalLength: $('focalLength').value.trim(),
       shotSettings: $('shotSettings').value.trim(),
       note: $('portfolioNote').value.trim()
@@ -305,6 +384,97 @@
     URL.revokeObjectURL(url);
   }
 
+  function exportCsv() {
+    if (!state.observations.length) {
+      toast('Nenhuma observação para exportar.');
+      return;
+    }
+    const headers = ['data', 'tipo', 'status', 'especie_ou_descricao', 'comportamento', 'ambiente', 'notas', 'latitude', 'longitude', 'trilha', 'midias_campo', 'fotos_profissionais'];
+    const rows = state.observations.map((obs) => {
+      const trail = findTrail(obs.trailId);
+      return [
+        formatDateTime(obs.createdAt),
+        obs.type,
+        obs.status,
+        obs.species,
+        obs.behavior,
+        obs.habitat,
+        obs.notes,
+        obs.location?.lat ?? '',
+        obs.location?.lng ?? '',
+        trail?.name || '',
+        obs.media?.length || 0,
+        obs.professionalPhotos?.length || 0
+      ];
+    });
+    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(';')).join('\n');
+    downloadText(`caderno-campo-observacoes-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv;charset=utf-8');
+  }
+
+  function exportGpx() {
+    const trail = state.activeTrail || state.trails[0];
+    if (!trail || !trail.points?.length) {
+      toast('Nenhuma trilha com pontos GPS para exportar.');
+      return;
+    }
+    const name = trail.name || 'Trilha';
+    const trkpts = trail.points.map((point) => {
+      const ele = point.altitude !== null && point.altitude !== undefined ? `<ele>${Number(point.altitude).toFixed(1)}</ele>` : '';
+      const time = point.timestamp ? `<time>${new Date(point.timestamp).toISOString()}</time>` : '';
+      return `      <trkpt lat="${point.lat}" lon="${point.lng}">${ele}${time}</trkpt>`;
+    }).join('\n');
+    const waypoints = [
+      ...state.observations.filter((obs) => obs.location).map((obs) => `  <wpt lat="${obs.location.lat}" lon="${obs.location.lng}"><name>${xmlEscape(obs.species || obs.type || 'Observação')}</name><desc>${xmlEscape(obs.notes || obs.status || '')}</desc></wpt>`),
+      ...state.risks.filter((risk) => risk.location).map((risk) => `  <wpt lat="${risk.location.lat}" lon="${risk.location.lng}"><name>${xmlEscape(risk.type || 'Risco')}</name><desc>${xmlEscape((risk.severity || '') + ' ' + (risk.notes || ''))}</desc></wpt>`)
+    ].join('\n');
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Caderno de Campo" xmlns="http://www.topografix.com/GPX/1/1">\n  <metadata><name>${xmlEscape(name)}</name><time>${new Date().toISOString()}</time></metadata>\n${waypoints ? waypoints + '\n' : ''}  <trk><name>${xmlEscape(name)}</name><trkseg>\n${trkpts}\n  </trkseg></trk>\n</gpx>\n`;
+    const safeName = slugify(name) || 'trilha';
+    downloadText(`caderno-campo-${safeName}-${new Date().toISOString().slice(0, 10)}.gpx`, gpx, 'application/gpx+xml;charset=utf-8');
+  }
+
+  function openBestLocationInMaps() {
+    const loc = getBestLocation();
+    if (!loc) {
+      toast('Ainda não há coordenadas para abrir no mapa.');
+      return;
+    }
+    window.open(`https://maps.google.com/?q=${loc.lat},${loc.lng}`, '_blank', 'noopener');
+  }
+
+  function downloadText(filename, content, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function csvCell(value) {
+    const text = String(value ?? '').replace(/\r?\n/g, ' ');
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  function xmlEscape(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  function slugify(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48);
+  }
+
   function importJson(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -316,10 +486,13 @@
         if (!incoming || !Array.isArray(incoming.observations) || !Array.isArray(incoming.trails)) {
           throw new Error('Formato inválido');
         }
+        const defaults = defaultState();
+        const incomingSettings = incoming.settings || {};
+        const equipment = sanitizeEquipment(incomingSettings.equipment || defaults.settings.equipment);
         state = {
-          ...defaultState(),
+          ...defaults,
           ...incoming,
-          settings: { ...defaultState().settings, ...(incoming.settings || {}) }
+          settings: { ...defaults.settings, ...incomingSettings, equipment }
         };
         saveState();
         hydrateSettingsForm();
@@ -415,6 +588,7 @@
     $('gpsStatus').className = 'pill good';
     updateStats();
     updateEmergencyMessage();
+    renderMap();
   }
 
   function normalizePosition(position) {
@@ -443,6 +617,7 @@
     points.push(point);
     saveState();
     updateStats();
+    renderMap();
   }
 
   function useCurrentLocationFor(prefix) {
@@ -522,6 +697,9 @@
     renderObservations();
     renderTrails();
     renderPortfolioOptions();
+    renderEquipmentOptions();
+    renderEquipmentList();
+    renderMap();
     updateEmergencyMessage();
   }
 
@@ -586,12 +764,18 @@
 
       const mediaRow = node.querySelector('.media-row');
       addChip(mediaRow, obs.status);
-      if (obs.media?.length) addChip(mediaRow, `${obs.media.length} mídia de campo`);
-      if (obs.professionalPhotos?.length) addChip(mediaRow, `${obs.professionalPhotos.length} foto profissional`);
 
-      const firstImage = [...(obs.media || []), ...(obs.professionalPhotos || [])].find((item) => (item.type || '').startsWith('image/'));
+      const fieldMedia = obs.media || [];
+      const professionalMedia = obs.professionalPhotos || [];
+      fieldMedia.forEach((item, index) => addMediaButton(mediaRow, item, item.kind === 'audio' ? `Áudio ${index + 1}` : `Campo ${index + 1}`, obs));
+      professionalMedia.forEach((item, index) => addMediaButton(mediaRow, item, `Profissional ${index + 1}`, obs));
+
+      const firstImage = [...fieldMedia, ...professionalMedia].find((item) => (item.type || '').startsWith('image/'));
       const thumb = node.querySelector('.thumb');
       if (firstImage) {
+        thumb.classList.add('is-clickable');
+        thumb.title = 'Abrir foto';
+        thumb.addEventListener('click', () => openMediaViewer(firstImage, title, obs));
         loadMediaUrl(firstImage.id).then((url) => {
           if (!url) return;
           const img = document.createElement('img');
@@ -652,6 +836,116 @@
     if (currentValue && state.observations.some((obs) => obs.id === currentValue)) {
       select.value = currentValue;
     }
+  }
+
+  function getEquipmentValue(selectId, otherId) {
+    const selected = $(selectId)?.value?.trim() || '';
+    const other = $(otherId)?.value?.trim() || '';
+    return other || selected;
+  }
+
+  function sanitizeEquipment(items) {
+    const list = Array.isArray(items) ? items : defaultEquipment();
+    return list
+      .filter((item) => item && item.name)
+      .map((item) => ({ id: item.id || uid('eq'), category: item.category || 'Acessório', name: String(item.name).trim() }))
+      .filter((item) => item.name);
+  }
+
+  function renderEquipmentOptions() {
+    const equipment = state.settings.equipment || [];
+    fillEquipmentSelect($('cameraModel'), 'Câmera', 'Selecionar câmera');
+    fillEquipmentSelect($('lensModel'), 'Lente', 'Selecionar lente');
+    fillEquipmentSelect($('accessoryUsed'), 'Acessório', 'Nenhum acessório');
+
+    function fillEquipmentSelect(select, category, placeholder) {
+      if (!select) return;
+      const currentValue = select.value;
+      select.innerHTML = '';
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = placeholder;
+      select.appendChild(empty);
+      equipment
+        .filter((item) => item.category === category)
+        .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+        .forEach((item) => {
+          const option = document.createElement('option');
+          option.value = item.name;
+          option.textContent = item.name;
+          select.appendChild(option);
+        });
+      if (currentValue && Array.from(select.options).some((option) => option.value === currentValue)) select.value = currentValue;
+    }
+  }
+
+  function renderEquipmentList() {
+    const list = $('equipmentList');
+    if (!list) return;
+    const equipment = state.settings.equipment || [];
+    list.innerHTML = '';
+    if (!equipment.length) {
+      list.classList.add('empty-state');
+      list.textContent = 'Nenhum equipamento cadastrado.';
+      return;
+    }
+    list.classList.remove('empty-state');
+    ['Câmera', 'Lente', 'Acessório'].forEach((category) => {
+      const groupItems = equipment.filter((item) => item.category === category).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      if (!groupItems.length) return;
+      const group = document.createElement('div');
+      group.className = 'equipment-group';
+      const title = document.createElement('h3');
+      title.textContent = category;
+      group.appendChild(title);
+      groupItems.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'equipment-item';
+        const name = document.createElement('span');
+        name.textContent = item.name;
+        const remove = document.createElement('button');
+        remove.className = 'ghost small';
+        remove.type = 'button';
+        remove.textContent = 'remover';
+        remove.dataset.deleteEquipment = item.id;
+        row.append(name, remove);
+        group.appendChild(row);
+      });
+      list.appendChild(group);
+    });
+  }
+
+  function addEquipment() {
+    const category = $('equipmentCategory').value;
+    const name = $('equipmentName').value.trim();
+    if (!name) {
+      toast('Digite o nome do equipamento.');
+      return;
+    }
+    state.settings.equipment = state.settings.equipment || [];
+    const exists = state.settings.equipment.some((item) => item.category === category && item.name.toLowerCase() === name.toLowerCase());
+    if (exists) {
+      toast('Esse equipamento já está na lista.');
+      return;
+    }
+    state.settings.equipment.push({ id: uid('eq'), category, name });
+    saveState();
+    $('equipmentForm').reset();
+    renderEquipmentOptions();
+    renderEquipmentList();
+    toast('Equipamento adicionado.');
+  }
+
+  function deleteEquipment(id) {
+    const item = (state.settings.equipment || []).find((entry) => entry.id === id);
+    if (!item) return;
+    const ok = confirm(`Remover “${item.name}” da lista de equipamentos?`);
+    if (!ok) return;
+    state.settings.equipment = (state.settings.equipment || []).filter((entry) => entry.id !== id);
+    saveState();
+    renderEquipmentOptions();
+    renderEquipmentList();
+    toast('Equipamento removido.');
   }
 
   function hydrateSettingsForm() {
@@ -727,98 +1021,149 @@
     return '';
   }
 
-  function activateSOS() {
+  async function activateSOS() {
     state.sosEvents.unshift({ id: uid('sos'), createdAt: new Date().toISOString(), location: getBestLocation() });
     saveState();
     $('sosOverlay').classList.remove('hidden');
+    $('sosOverlay').classList.add('flashing');
+    document.body.classList.add('sos-active');
     updateEmergencyMessage();
-    startSiren();
-    startLight();
+    if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 600]);
+    await startSiren();
+    await startLight();
   }
 
   function stopSOS() {
     stopSiren();
     stopLight();
     $('sosOverlay').classList.add('hidden');
+    $('sosOverlay').classList.remove('flashing');
+    document.body.classList.remove('sos-active');
   }
 
-  function toggleSiren() {
-    siren.active ? stopSiren() : startSiren();
+  async function toggleSiren() {
+    siren.active ? stopSiren() : await startSiren();
   }
 
-  function toggleLight() {
-    torch.active || document.body.classList.contains('sos-flash') ? stopLight() : startLight();
+  async function toggleLight() {
+    torch.active || document.body.classList.contains('sos-flash') ? stopLight() : await startLight();
   }
 
-  function startSiren() {
-    if (siren.active) return;
+  async function startSiren() {
+    if (siren.active) return true;
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) {
         toast('Áudio não disponível neste navegador.');
-        return;
+        return false;
       }
       const ctx = new AudioContext();
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-      oscillator.type = 'sawtooth';
-      oscillator.frequency.value = 650;
-      gain.gain.value = 0.06;
-      oscillator.connect(gain).connect(ctx.destination);
-      oscillator.start();
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      masterGain.connect(ctx.destination);
+
+      const oscA = ctx.createOscillator();
+      const oscB = ctx.createOscillator();
+      oscA.type = 'sawtooth';
+      oscB.type = 'square';
+      oscA.frequency.setValueAtTime(720, ctx.currentTime);
+      oscB.frequency.setValueAtTime(360, ctx.currentTime);
+      oscA.connect(masterGain);
+      oscB.connect(masterGain);
+      oscA.start();
+      oscB.start();
+      masterGain.gain.setTargetAtTime(0.18, ctx.currentTime, 0.03);
+
       let high = false;
-      const interval = setInterval(() => {
+      const pulseInterval = setInterval(() => {
+        if (ctx.state === 'suspended') ctx.resume().catch(() => null);
         high = !high;
-        oscillator.frequency.setTargetAtTime(high ? 1150 : 650, ctx.currentTime, 0.06);
-      }, 420);
-      siren = { ctx, oscillator, gain, interval, active: true };
+        const now = ctx.currentTime;
+        oscA.frequency.cancelScheduledValues(now);
+        oscB.frequency.cancelScheduledValues(now);
+        masterGain.gain.cancelScheduledValues(now);
+        oscA.frequency.setTargetAtTime(high ? 1280 : 620, now, 0.045);
+        oscB.frequency.setTargetAtTime(high ? 640 : 310, now, 0.045);
+        masterGain.gain.setTargetAtTime(high ? 0.28 : 0.11, now, 0.035);
+      }, 360);
+
+      siren = { ctx, oscillators: [oscA, oscB], gain: masterGain, pulseInterval, active: true };
       $('btnSiren').textContent = 'Parar sirene';
+      return true;
     } catch (error) {
       console.warn('Falha na sirene', error);
-      toast('Não consegui iniciar a sirene.');
+      toast('Não consegui iniciar a sirene. Verifique volume/permissão e toque em Sirene novamente.');
+      return false;
     }
   }
 
   function stopSiren() {
     try {
-      if (siren.interval) clearInterval(siren.interval);
-      if (siren.oscillator) siren.oscillator.stop();
-      if (siren.ctx) siren.ctx.close();
+      if (siren.pulseInterval) clearInterval(siren.pulseInterval);
+      if (siren.gain && siren.ctx && siren.ctx.state !== 'closed') {
+        const now = siren.ctx.currentTime;
+        siren.gain.gain.cancelScheduledValues(now);
+        siren.gain.gain.setTargetAtTime(0.0001, now, 0.03);
+      }
+      (siren.oscillators || []).forEach((oscillator) => {
+        try { oscillator.stop(); } catch (error) { /* já parado */ }
+        try { oscillator.disconnect(); } catch (error) { /* ignorar */ }
+      });
+      if (siren.ctx && siren.ctx.state !== 'closed') siren.ctx.close();
     } catch (error) {
       console.warn('Falha ao parar sirene', error);
     }
-    siren = { ctx: null, oscillator: null, gain: null, interval: null, active: false };
+    siren = { ctx: null, oscillators: [], gain: null, pulseInterval: null, active: false };
     $('btnSiren').textContent = 'Sirene';
   }
 
   async function startLight() {
+    if (torch.active) return true;
     document.body.classList.add('sos-flash');
-    $('btnLight').textContent = 'Parar luz';
+    $('sosOverlay').classList.add('flashing');
+    $('btnLight').textContent = 'Parar pisca-alerta';
+    if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
+
     try {
-      if (!navigator.mediaDevices?.getUserMedia) return;
+      if (!navigator.mediaDevices?.getUserMedia) return false;
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
       const track = stream.getVideoTracks()[0];
       const capabilities = track.getCapabilities ? track.getCapabilities() : {};
       if (capabilities.torch) {
-        await track.applyConstraints({ advanced: [{ torch: true }] });
-        torch = { stream, track, active: true };
-      } else {
-        stream.getTracks().forEach((item) => item.stop());
+        torch = { stream, track, active: true, interval: null, torchOn: false };
+        const blink = async () => {
+          torch.torchOn = !torch.torchOn;
+          try {
+            await track.applyConstraints({ advanced: [{ torch: torch.torchOn }] });
+          } catch (error) {
+            console.warn('Falha ao alternar lanterna', error);
+          }
+        };
+        await blink();
+        torch.interval = setInterval(blink, 480);
+        return true;
       }
+      stream.getTracks().forEach((item) => item.stop());
+      return false;
     } catch (error) {
       console.warn('Lanterna não disponível, usando tela como fallback', error);
+      return false;
     }
   }
 
   function stopLight() {
     document.body.classList.remove('sos-flash');
+    $('sosOverlay').classList.remove('flashing');
     try {
+      if (torch.interval) clearInterval(torch.interval);
       if (torch.track) torch.track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => null);
       if (torch.stream) torch.stream.getTracks().forEach((track) => track.stop());
     } catch (error) {
       console.warn('Falha ao desligar lanterna', error);
     }
-    torch = { stream: null, track: null, active: false };
+    torch = { stream: null, track: null, active: false, interval: null, torchOn: false };
     $('btnLight').textContent = 'Luz';
   }
 
@@ -852,6 +1197,142 @@
       return;
     }
     window.location.href = `tel:${phone}`;
+  }
+
+  function loadLeafletAssets() {
+    if (window.L) return Promise.resolve(true);
+    if (leafletLoadPromise) return leafletLoadPromise;
+    leafletLoadPromise = new Promise((resolve) => {
+      let settled = false;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        resolve(ok);
+      };
+
+      if (!document.getElementById('leafletCss')) {
+        const css = document.createElement('link');
+        css.id = 'leafletCss';
+        css.rel = 'stylesheet';
+        css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        css.crossOrigin = '';
+        document.head.appendChild(css);
+      }
+
+      if (document.getElementById('leafletJs')) {
+        setTimeout(() => finish(Boolean(window.L)), 500);
+        setTimeout(() => finish(Boolean(window.L)), 6000);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.id = 'leafletJs';
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.crossOrigin = '';
+      script.onload = () => finish(true);
+      script.onerror = () => finish(false);
+      document.head.appendChild(script);
+      setTimeout(() => finish(Boolean(window.L)), 8000);
+    });
+    return leafletLoadPromise;
+  }
+
+  function initMapIfNeeded() {
+    const el = $('mapCanvas');
+    const fallback = $('mapFallback');
+    if (!el) return;
+    if (!window.L) {
+      if (fallback) fallback.classList.remove('hidden');
+      loadLeafletAssets().then((loaded) => {
+        if (!loaded) return;
+        if (fallback) fallback.classList.add('hidden');
+        initMapIfNeeded();
+        renderMap();
+        setTimeout(fitMapToContent, 120);
+      });
+      return;
+    }
+    if (fallback) fallback.classList.add('hidden');
+    if (mapState.map) return;
+    mapState.map = L.map(el, { zoomControl: true, preferCanvas: true }).setView([-14.2350, -51.9253], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(mapState.map);
+    mapState.hasTiles = true;
+  }
+
+  function renderMap() {
+    const mapScreenVisible = $('screen-mapa')?.classList.contains('active');
+    if (!mapScreenVisible && !mapState.map) return;
+    initMapIfNeeded();
+    if (!mapState.map || !window.L) return;
+
+    const allTrails = [...(state.activeTrail ? [state.activeTrail] : []), ...state.trails];
+    const activePoints = state.activeTrail?.points || [];
+    const lastTrailWithPoints = allTrails.find((trail) => trail.points?.length);
+    const pointsForLine = activePoints.length ? activePoints : (lastTrailWithPoints?.points || []);
+
+    if (mapState.trailLayer) mapState.trailLayer.remove();
+    if (mapState.observationLayer) mapState.observationLayer.remove();
+    if (mapState.riskLayer) mapState.riskLayer.remove();
+
+    mapState.trailLayer = L.layerGroup().addTo(mapState.map);
+    mapState.observationLayer = L.layerGroup().addTo(mapState.map);
+    mapState.riskLayer = L.layerGroup().addTo(mapState.map);
+
+    if (pointsForLine.length) {
+      const latLngs = pointsForLine.map((point) => [point.lat, point.lng]);
+      L.polyline(latLngs, { color: '#224734', weight: 5, opacity: 0.82 }).addTo(mapState.trailLayer).bindPopup('Rota gravada');
+      const start = pointsForLine[0];
+      const end = pointsForLine[pointsForLine.length - 1];
+      L.marker([start.lat, start.lng]).addTo(mapState.trailLayer).bindPopup('Início da rota');
+      L.marker([end.lat, end.lng]).addTo(mapState.trailLayer).bindPopup('Último ponto da rota');
+    }
+
+    if (currentLocation) {
+      if (mapState.currentMarker) mapState.currentMarker.remove();
+      mapState.currentMarker = L.circleMarker([currentLocation.lat, currentLocation.lng], {
+        radius: 8,
+        color: '#1d5fd1',
+        fillColor: '#1d5fd1',
+        weight: 3,
+        fillOpacity: 0.9
+      }).addTo(mapState.map).bindPopup(`Posição atual<br>${currentLocation.lat.toFixed(6)}, ${currentLocation.lng.toFixed(6)}`);
+    }
+
+    state.observations.filter((obs) => obs.location).forEach((obs) => {
+      const title = escapeHtml(obs.species || obs.type || 'Observação');
+      const meta = escapeHtml(formatDateTime(obs.createdAt));
+      L.circleMarker([obs.location.lat, obs.location.lng], { radius: 7, color: '#287a4f', fillColor: '#287a4f', weight: 2, fillOpacity: 0.75 })
+        .addTo(mapState.observationLayer)
+        .bindPopup(`<strong>${title}</strong><br>${escapeHtml(obs.type)}<br>${meta}`);
+    });
+
+    state.risks.filter((risk) => risk.location).forEach((risk) => {
+      const title = escapeHtml(risk.type || 'Risco');
+      const notes = escapeHtml(risk.notes || 'Sem nota');
+      L.circleMarker([risk.location.lat, risk.location.lng], { radius: 8, color: '#b83333', fillColor: '#b83333', weight: 3, fillOpacity: 0.85 })
+        .addTo(mapState.riskLayer)
+        .bindPopup(`<strong>${title}</strong><br>Gravidade: ${escapeHtml(risk.severity || '—')}<br>${notes}`);
+    });
+  }
+
+  function fitMapToContent() {
+    initMapIfNeeded();
+    if (!mapState.map || !window.L) return;
+    const latLngs = [];
+    if (currentLocation) latLngs.push([currentLocation.lat, currentLocation.lng]);
+    const allTrails = [...(state.activeTrail ? [state.activeTrail] : []), ...state.trails];
+    allTrails.forEach((trail) => (trail.points || []).forEach((point) => latLngs.push([point.lat, point.lng])));
+    state.observations.forEach((obs) => { if (obs.location) latLngs.push([obs.location.lat, obs.location.lng]); });
+    state.risks.forEach((risk) => { if (risk.location) latLngs.push([risk.location.lat, risk.location.lng]); });
+    if (!latLngs.length) {
+      toast('Ainda não há pontos com GPS para enquadrar.');
+      return;
+    }
+    mapState.map.fitBounds(L.latLngBounds(latLngs), { padding: [28, 28], maxZoom: 16 });
   }
 
   function buildObservationMeta(obs) {
@@ -900,6 +1381,93 @@
     container.appendChild(chip);
   }
 
+  function addMediaButton(container, media, label, obs) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'media-chip media-button';
+    const isImage = (media.type || '').startsWith('image/');
+    const isAudio = (media.type || '').startsWith('audio/');
+    button.textContent = `${isImage ? 'Abrir foto' : isAudio ? 'Abrir áudio' : 'Abrir mídia'} · ${label}`;
+    button.addEventListener('click', () => openMediaViewer(media, obs.species || obs.type || 'Registro', obs));
+    container.appendChild(button);
+  }
+
+  async function openMediaViewer(media, title, obs) {
+    const modal = $('mediaModal');
+    const body = $('mediaViewerBody');
+    const heading = $('mediaViewerTitle');
+    const meta = $('mediaViewerMeta');
+    const download = $('mediaDownload');
+    if (!modal || !body || !media) return;
+    closeMediaViewer(false);
+    heading.textContent = title || media.name || 'Mídia registrada';
+    body.innerHTML = '<p class="muted-text">Carregando mídia...</p>';
+    modal.classList.remove('hidden');
+
+    const url = await loadMediaUrl(media.id);
+    if (!url) {
+      body.innerHTML = '<p class="muted-text">Não consegui carregar este arquivo. Ele pode ter sido removido do armazenamento local do navegador.</p>';
+      return;
+    }
+    mediaViewerObjectUrl = url;
+    body.innerHTML = '';
+    if ((media.type || '').startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = title || media.name || 'Foto registrada';
+      body.appendChild(img);
+    } else if ((media.type || '').startsWith('audio/')) {
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.src = url;
+      body.appendChild(audio);
+    } else if ((media.type || '').startsWith('video/')) {
+      const video = document.createElement('video');
+      video.controls = true;
+      video.src = url;
+      body.appendChild(video);
+    } else {
+      const link = document.createElement('a');
+      link.href = url;
+      link.textContent = media.name || 'Abrir arquivo';
+      link.target = '_blank';
+      body.appendChild(link);
+    }
+    const equipment = [media.cameraModel, media.lensModel, media.accessoryUsed, media.focalLength, media.shotSettings].filter(Boolean).join(' · ');
+    const note = media.note ? `\nNota: ${media.note}` : '';
+    const loc = obs?.location ? `\nGPS: ${obs.location.lat.toFixed(6)}, ${obs.location.lng.toFixed(6)}` : '';
+    meta.textContent = [media.name || 'Arquivo sem nome', equipment, formatDateTime(media.createdAt), note, loc].filter(Boolean).join('\n');
+    download.href = url;
+    download.download = media.name || 'midia-caderno-de-campo';
+    download.target = '_blank';
+    download.classList.remove('hidden');
+  }
+
+  function closeMediaViewer(hide = true) {
+    const body = $('mediaViewerBody');
+    const modal = $('mediaModal');
+    const download = $('mediaDownload');
+    if (mediaViewerObjectUrl) {
+      URL.revokeObjectURL(mediaViewerObjectUrl);
+      mediaViewerObjectUrl = '';
+    }
+    if (body) body.innerHTML = '';
+    if (download) {
+      download.href = '#';
+      download.classList.add('hidden');
+    }
+    if (hide && modal) modal.classList.add('hidden');
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function iconForType(type) {
     const map = {
       'Ave': '🪶',
@@ -911,6 +1479,7 @@
       'Fungo': '🍄',
       'Pegada/rastro': '🐾',
       'Som/canto': '♪',
+      'Ninho/toca': '🪹',
       'Outro': '•'
     };
     return map[type] || '•';

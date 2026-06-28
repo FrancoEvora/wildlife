@@ -2,24 +2,33 @@
 
 Aplicativo pessoal para trilhas, registros de vida selvagem, fotografia e segurança em campo.
 
-Esta primeira versão é um PWA estático: não usa servidor próprio, login, banco externo nem nuvem. Os dados ficam no navegador do aparelho, usando IndexedDB.
+É um PWA estático: não usa servidor próprio, login, banco externo nem nuvem. Os dados ficam no navegador do aparelho, usando `localStorage` para os dados estruturados e `IndexedDB` para fotos/áudios.
 
-## O que já está implementado
+## Novidades desta versão
+
+- Sirene do SOS refeita com áudio pulsante mais forte.
+- Pisca-alerta de emergência com tela piscante e tentativa de piscar a lanterna física do celular quando o navegador permitir.
+- Visualizador de foto/áudio: agora é possível abrir a foto já registrada tocando na miniatura ou nos botões de mídia.
+- Aba **Mapa**, com rota gravada, posição atual, observações e riscos/pontos úteis.
+- Exportação **GPX** pela aba Mapa.
+- Exportação **CSV** pela aba Observações.
+- Lista editável de equipamentos: câmeras, lentes e acessórios.
+- Layout renovado, com cards mais limpos, navegação inferior e visual mais premium.
+
+## O que está implementado
 
 - Iniciar e finalizar trilha.
 - Gravar rota por GPS, distância aproximada e pontos de localização.
 - Registrar avistamentos de fauna/flora, rastros, sons, ninhos/tocas e outros achados.
-- Salvar foto de campo, áudio de campo e foto profissional complementar.
-- Complementar um registro posteriormente pela Biblioteca, incluindo nova foto profissional, nota posterior e dados de câmera.
+- Salvar foto de campo e áudio de campo.
+- Complementar um registro posteriormente com foto profissional, câmera, lente, acessório, distância focal, configurações e nota posterior.
 - Marcar riscos e pontos úteis: trecho escorregadio, ponte ruim, árvore caída, ponto sem sinal, ponto de água etc.
-- Biblioteca pessoal com busca e filtros.
-- Exportação de backup JSON com dados e mídias.
-- Importação de backup JSON.
-- Exportação CSV das observações.
-- Exportação GPX das trilhas com pontos GPS.
+- Biblioteca pessoal com busca e abertura de mídias.
+- Mapa interativo online com trilha, registros e riscos.
+- Exportação JSON dos dados estruturados.
+- Importação JSON dos dados estruturados.
 - Tela de SOS com sirene, tela piscante, vibração, tentativa de lanterna, coordenadas e mensagem para copiar/compartilhar.
 - Plano rápido de segurança com previsão de retorno, contatos e mensagem padrão.
-- Funcionamento offline depois de instalado/carregado em HTTPS ou localhost.
 
 ## Como testar no computador
 
@@ -41,42 +50,24 @@ No computador, `localhost` costuma permitir recursos como GPS, service worker e 
 
 ## Como usar no celular
 
-Para GPS, instalação PWA e service worker funcionarem bem no celular, o ideal é abrir o app por um endereço HTTPS. Você pode publicar a pasta na Vercel usando GitHub. Veja o passo a passo em `DEPLOY.md`.
+Para GPS, instalação PWA e service worker funcionarem bem no celular, abra o app por um endereço HTTPS. Você pode publicar a pasta na Vercel usando GitHub. Veja o passo a passo em `DEPLOY.md`.
 
 Depois de abrir no navegador do celular, use a opção “Adicionar à tela inicial” ou “Instalar app”, quando disponível.
 
-## Publicação
+## Observações importantes
 
-O pacote já inclui arquivos úteis para GitHub + Vercel:
-
-- `vercel.json`: cabeçalhos e configuração simples para publicação estática.
-- `.gitignore`: evita subir configurações locais e backups exportados pelo app.
-- `robots.txt`: pede para buscadores não indexarem o app.
-- `DEPLOY.md`: passo a passo de publicação.
-
-## Observações importantes de segurança
-
-- O SOS não chama resgate automaticamente.
-- Compartilhar localização depende de sinal, permissão do navegador e apps disponíveis no aparelho.
-- A lanterna física do celular nem sempre pode ser controlada pelo navegador; por isso o app também usa tela piscante, sirene e vibração.
-- O app ajuda no registro e sinalização, mas não substitui planejamento, equipamento adequado, bateria externa, mapa confiável, guia local ou contato com serviços oficiais.
-- Faça backup JSON com frequência. Se você limpar os dados do navegador ou trocar de aparelho sem backup, os registros locais podem ser perdidos.
-- Não envie backups, fotos pessoais, GPXs ou CSVs para o GitHub.
+- A sirene depende de volume do aparelho, permissões do navegador e contexto de interação do usuário.
+- A lanterna física não é garantida em todos os navegadores; por isso o app também usa tela piscante e vibração.
+- O mapa usa tiles online. Seus registros continuam locais, mas o fundo do mapa depende de conexão.
+- A exportação JSON salva os dados estruturados. As mídias ficam no armazenamento local do navegador.
+- Faça backup regularmente e não envie backups, fotos pessoais, GPXs ou CSVs para o GitHub.
+- O SOS não chama resgate automaticamente. Ele ajuda a sinalizar, copiar/compartilhar coordenadas e ligar para o contato configurado.
 
 ## Arquivos principais
 
 - `index.html`: estrutura do aplicativo.
 - `styles.css`: visual responsivo.
-- `app.js`: lógica, banco local, GPS, registros, biblioteca, SOS e exportações.
+- `app.js`: lógica, banco local, GPS, registros, biblioteca, mapa, SOS e exportações.
 - `manifest.json`: instalação PWA.
 - `sw.js`: cache offline do app.
 - `icon.svg`, `icon-192.png`, `icon-512.png`: ícones.
-
-## Próximas melhorias sugeridas
-
-- Mapa offline real com tiles baixados previamente.
-- Reconhecimento de espécies por imagem/áudio.
-- Relatório pós-trilha em PDF.
-- Replay visual da trilha com fotos no mapa.
-- Check-in automático mais avançado com integração nativa.
-- Versão nativa Android/iOS para acesso mais confiável a lanterna, SMS e sensores.
