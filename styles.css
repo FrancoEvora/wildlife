@@ -56,10 +56,33 @@ h1, h2, h3, p { margin: 0; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 12px 2px 20px;
+  gap: 16px;
+  padding: 10px 2px 20px;
   color: #fffaf0;
 }
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.brand-mark-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.08));
+  border: 1px solid rgba(255,255,255,.16);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 18px 35px rgba(0,0,0,.14);
+  flex: 0 0 auto;
+}
+.brand-logo { width: 46px; height: 46px; display: block; }
+.brand-copy { min-width: 0; }
+.title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.header-subtitle { margin-top: 6px; color: rgba(255,250,240,.78); line-height: 1.45; }
+.version-pill { background: rgba(240,194,123,.22); color: #fff7ea; border: 1px solid rgba(240,194,123,.28); }
 
 h1 { font-size: clamp(1.8rem, 5vw, 2.7rem); letter-spacing: -.055em; font-weight: 950; }
 h2 { font-size: clamp(1.22rem, 4vw, 1.65rem); letter-spacing: -.035em; font-weight: 950; }
@@ -317,6 +340,23 @@ textarea:focus {
 }
 .sos-card .eyebrow { color: #ffd2a0; }
 .sos-card p:not(.eyebrow) { color: rgba(255,255,255,.80); line-height: 1.5; margin: 8px 0 16px; }
+
+.siren-status {
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: rgba(255, 250, 240, .12);
+  border: 1px solid rgba(255, 250, 240, .24);
+  font-weight: 750;
+}
+.siren-status[data-tone="ok"] {
+  background: rgba(218, 255, 208, .17);
+  border-color: rgba(218, 255, 208, .38);
+}
+.siren-status[data-tone="error"] {
+  background: rgba(255, 226, 226, .20);
+  border-color: rgba(255, 226, 226, .46);
+}
+
 .sos-button {
   width: 100%;
   min-height: 104px;
@@ -612,4 +652,51 @@ body.sos-flash::after {
 @media (max-width: 760px) {
   .toolbar-actions { width: 100%; justify-content: stretch; }
   .toolbar-actions > * { flex: 1 1 auto; }
+}
+
+#sirenAudio,
+#unlockAudio,
+#sirenVideo {
+  position: fixed;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+
+.inline-list-header { margin-top: 16px; margin-bottom: 10px; }
+.item-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.section-title.compact { margin-bottom: 10px; }
+.detail-modal-body { display: grid; gap: 14px; margin-top: 16px; }
+.detail-copy { line-height: 1.55; color: var(--text); }
+.detail-list { display: grid; gap: 8px; }
+.detail-row { display: grid; gap: 4px; padding: 10px 12px; border-radius: 16px; background: rgba(255,250,240,.64); border: 1px solid var(--border); }
+.detail-row strong { color: var(--primary); font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; }
+.detail-media-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.detail-map-link { width: fit-content; }
+.sub-card { border: 1px solid var(--border); background: rgba(255,250,240,.7); border-radius: 22px; padding: 14px; }
+.mini-list { display: grid; gap: 8px; }
+.mini-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: 16px; background: rgba(255,255,255,.6); display: grid; gap: 4px; }
+.mini-item button { justify-content: flex-start; }
+.mini-title { font-weight: 900; color: var(--text); }
+.mini-meta { font-size: .82rem; color: var(--muted); line-height: 1.45; }
+.trail-player-card { width: min(980px, 96vw); }
+.trail-player-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 16px 0 14px; }
+.speed-label { max-width: 120px; }
+.mini-map { min-height: 340px; height: min(50vh, 460px); margin-bottom: 14px; }
+.trail-related-grid { align-items: start; }
+.risk-high { color: var(--danger); }
+.risk-medium { color: #a06318; }
+.risk-low { color: var(--primary); }
+
+@media (max-width: 760px) {
+  .brand-block { align-items: flex-start; }
+  .brand-mark-wrap { width: 56px; height: 56px; border-radius: 18px; }
+  .brand-logo { width: 40px; height: 40px; }
+  .title-row { align-items: flex-start; }
+  .header-subtitle { max-width: 28ch; }
+  .trail-player-toolbar { display: grid; grid-template-columns: 1fr 1fr; }
+  .speed-label { max-width: none; }
 }

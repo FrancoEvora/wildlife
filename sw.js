@@ -1,4 +1,4 @@
-const CACHE_NAME = 'caderno-campo-v3';
+const CACHE_NAME = 'caderno-campo-v6';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,7 +6,11 @@ const APP_SHELL = [
   './app.js',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './logo.svg',
+  './assets/siren.wav',
+  './assets/siren.mp4',
+  './assets/unlock.wav'
 ];
 
 self.addEventListener('install', (event) => {

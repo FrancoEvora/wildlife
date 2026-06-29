@@ -1,14 +1,24 @@
-# Caderno de Campo
+# Caderno de Campo v4.0
 
 Aplicativo pessoal para trilhas, registros de vida selvagem, fotografia e segurança em campo.
 
 É um PWA estático: não usa servidor próprio, login, banco externo nem nuvem. Os dados ficam no navegador do aparelho, usando `localStorage` para os dados estruturados e `IndexedDB` para fotos/áudios.
 
-## Novidades desta versão
+## Correção desta versão
 
-- Sirene do SOS refeita com áudio pulsante mais forte.
+Esta versão troca a sirene por um sistema de áudio com três caminhos em paralelo:
+
+1. arquivo `assets/siren.wav` tocado por `<audio>`;
+2. arquivo `assets/siren.mp4` tocado por `<video>` oculto, como fallback de compatibilidade em celulares;
+3. sirene sintética por Web Audio, como fallback extra.
+
+Também foi adicionado o botão **Testar sirene** na tela SOS. Use esse teste antes de ir para campo.
+
+## Novidades já incluídas
+
+- Sirene do SOS com áudio pulsante mais forte e fallbacks.
 - Pisca-alerta de emergência com tela piscante e tentativa de piscar a lanterna física do celular quando o navegador permitir.
-- Visualizador de foto/áudio: agora é possível abrir a foto já registrada tocando na miniatura ou nos botões de mídia.
+- Visualizador de foto/áudio: é possível abrir a foto já registrada tocando na miniatura ou nos botões de mídia.
 - Aba **Mapa**, com rota gravada, posição atual, observações e riscos/pontos úteis.
 - Exportação **GPX** pela aba Mapa.
 - Exportação **CSV** pela aba Observações.
@@ -54,9 +64,22 @@ Para GPS, instalação PWA e service worker funcionarem bem no celular, abra o a
 
 Depois de abrir no navegador do celular, use a opção “Adicionar à tela inicial” ou “Instalar app”, quando disponível.
 
+## Teste da sirene no celular
+
+1. Abra o app pelo navegador ou PWA.
+2. Vá em **SOS**.
+3. Coloque o volume de mídia no máximo.
+4. Tire o aparelho do modo silencioso, principalmente no iPhone.
+5. Toque em **Testar sirene**.
+6. Se estiver tudo certo, a sirene toca por cerca de 2 segundos.
+
+Se o app já estava instalado antes, remova o ícone da tela inicial e instale novamente, ou limpe o cache do site no navegador. A versão nova usa `CACHE_NAME = caderno-campo-v5`.
+
 ## Observações importantes
 
 - A sirene depende de volume do aparelho, permissões do navegador e contexto de interação do usuário.
+- Navegadores móveis podem bloquear áudio se a reprodução não nasce de um toque direto.
+- No iPhone, modo silencioso/volume baixo pode interferir no som de PWAs/web apps.
 - A lanterna física não é garantida em todos os navegadores; por isso o app também usa tela piscante e vibração.
 - O mapa usa tiles online. Seus registros continuam locais, mas o fundo do mapa depende de conexão.
 - A exportação JSON salva os dados estruturados. As mídias ficam no armazenamento local do navegador.
@@ -68,6 +91,9 @@ Depois de abrir no navegador do celular, use a opção “Adicionar à tela inic
 - `index.html`: estrutura do aplicativo.
 - `styles.css`: visual responsivo.
 - `app.js`: lógica, banco local, GPS, registros, biblioteca, mapa, SOS e exportações.
+- `assets/siren.wav`: sirene em áudio.
+- `assets/siren.mp4`: fallback de sirene em mídia.
+- `assets/unlock.wav`: arquivo silencioso curto para preparar áudio após interação.
 - `manifest.json`: instalação PWA.
 - `sw.js`: cache offline do app.
 - `icon.svg`, `icon-192.png`, `icon-512.png`: ícones.

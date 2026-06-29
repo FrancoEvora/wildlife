@@ -15,11 +15,14 @@
   let timerInterval = null;
   let returnInterval = null;
   let mediaDbPromise = null;
-  let siren = { ctx: null, oscillators: [], gain: null, pulseInterval: null, active: false };
+  let siren = { ctx: null, oscillators: [], gain: null, pulseInterval: null, audio: null, video: null, htmlActive: false, videoActive: false, webActive: false, active: false, lastError: '' };
+  let audioPrimed = false;
   let torch = { stream: null, track: null, active: false, interval: null, torchOn: false };
   let mapState = { map: null, currentMarker: null, trailLayer: null, observationLayer: null, riskLayer: null, hasTiles: false };
   let leafletLoadPromise = null;
   let mediaViewerObjectUrl = '';
+  let detailContext = null;
+  let trailPlayerState = { map: null, trailLayer: null, marker: null, startMarker: null, endMarker: null, playTimer: null, pointIndex: 0, trailId: '', points: [] };
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -28,11 +31,15 @@
     bindTrailControls();
     bindObservationControls();
     bindRiskControls();
+    setupSirenAudio();
+    bindAudioUnlock();
     bindSafetyControls();
     bindPortfolioControls();
     bindEquipmentControls();
     bindMapControls();
     bindMediaViewerControls();
+    bindDetailModalControls();
+    bindTrailPlayerControls();
     bindBackupControls();
     bindStatusWatchers();
     registerServiceWorker();
@@ -152,6 +159,15 @@
       startTrail();
     });
     $('btnPrintTrail').addEventListener('click', () => window.print());
+    $('trailsList').addEventListener('click', (event) => {
+      const card = event.target.closest('[data-trail-id]');
+      if (!card) return;
+      if (event.target.closest('.trail-open-map')) {
+        openTrailPlayer(card.dataset.trailId, false);
+      } else if (event.target.closest('.trail-open-play')) {
+        openTrailPlayer(card.dataset.trailId, true);
+      }
+    });
   }
 
   function startTrail() {
@@ -201,6 +217,13 @@
     });
     $('btnUseLocationObs').addEventListener('click', () => useCurrentLocationFor('obs'));
     $('obsSearch').addEventListener('input', renderObservations);
+    $('observationsList').addEventListener('click', (event) => {
+      const button = event.target.closest('.detail-trigger');
+      if (!button) return;
+      const item = button.closest('[data-observation-id]');
+      if (!item) return;
+      openObservationDetail(item.dataset.observationId);
+    });
     const csvButton = $('btnExportCsv');
     if (csvButton) csvButton.addEventListener('click', exportCsv);
   }
@@ -239,15 +262,25 @@
   }
 
   function bindRiskControls() {
-    $('riskForm').addEventListener('submit', (event) => {
+    $('riskForm').addEventListener('submit', async (event) => {
       event.preventDefault();
-      saveRisk();
+      await saveRisk();
     });
     $('btnUseLocationRisk').addEventListener('click', () => useCurrentLocationFor('risk'));
+    $('risksList').addEventListener('click', (event) => {
+      const button = event.target.closest('.detail-trigger');
+      if (!button) return;
+      const item = button.closest('[data-risk-id]');
+      if (!item) return;
+      openRiskDetail(item.dataset.riskId);
+    });
   }
 
-  function saveRisk() {
+  async function saveRisk() {
     const loc = getFormOrCurrentLocation('risk');
+    const media = [];
+    const photo = $('riskPhoto').files[0];
+    if (photo) media.push(await storeMediaFile(photo, 'riskPhoto'));
     const risk = {
       id: uid('risk'),
       trailId: state.activeTrail ? state.activeTrail.id : '',
@@ -255,7 +288,8 @@
       type: $('riskType').value,
       severity: $('riskSeverity').value,
       notes: $('riskNotes').value.trim(),
-      location: loc
+      location: loc,
+      media
     };
 
     state.risks.unshift(risk);
@@ -282,6 +316,7 @@
     });
 
     $('btnActivateSOS').addEventListener('click', activateSOS);
+    $('btnTestSiren').addEventListener('click', testSirenOnce);
     $('btnStopSOS').addEventListener('click', stopSOS);
     $('btnSiren').addEventListener('click', toggleSiren);
     $('btnLight').addEventListener('click', toggleLight);
@@ -695,6 +730,7 @@
     updateStats();
     updateReturnStatus();
     renderObservations();
+    renderRisks();
     renderTrails();
     renderPortfolioOptions();
     renderEquipmentOptions();
@@ -756,11 +792,12 @@
     const template = $('observationTemplate');
     for (const obs of observations) {
       const node = template.content.firstElementChild.cloneNode(true);
+      node.dataset.observationId = obs.id;
       const title = obs.species || obs.type || 'Observação';
       node.querySelector('.item-title').textContent = title;
       node.querySelector('.item-type').textContent = obs.type;
       node.querySelector('.item-meta').textContent = buildObservationMeta(obs);
-      node.querySelector('.item-notes').textContent = [obs.behavior, obs.habitat, obs.notes].filter(Boolean).join(' · ');
+      node.querySelector('.item-notes').textContent = [obs.behavior, obs.habitat, obs.notes].filter(Boolean).join(' · ') || 'Sem observações adicionais.';
 
       const mediaRow = node.querySelector('.media-row');
       addChip(mediaRow, obs.status);
@@ -792,6 +829,48 @@
     }
   }
 
+  async function renderRisks() {
+    const list = $('risksList');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!state.risks.length) {
+      list.textContent = 'Nenhum risco ou ponto útil registrado ainda.';
+      list.classList.add('empty-state');
+      return;
+    }
+    list.classList.remove('empty-state');
+    const template = $('riskTemplate');
+    for (const risk of state.risks) {
+      const node = template.content.firstElementChild.cloneNode(true);
+      node.dataset.riskId = risk.id;
+      node.querySelector('.item-title').textContent = risk.type || 'Risco';
+      node.querySelector('.item-type').textContent = `gravidade ${risk.severity}`;
+      node.querySelector('.item-meta').textContent = buildRiskMeta(risk);
+      node.querySelector('.item-notes').textContent = risk.notes || 'Sem observações adicionais.';
+      const mediaRow = node.querySelector('.media-row');
+      addChip(mediaRow, 'Ponto no mapa');
+      (risk.media || []).forEach((item, index) => addMediaButton(mediaRow, item, `Imagem ${index + 1}`, risk));
+      const firstImage = (risk.media || []).find((item) => (item.type || '').startsWith('image/'));
+      const thumb = node.querySelector('.thumb');
+      if (firstImage) {
+        thumb.classList.add('is-clickable');
+        thumb.title = 'Abrir imagem';
+        thumb.addEventListener('click', () => openMediaViewer(firstImage, risk.type || 'Risco', risk));
+        loadMediaUrl(firstImage.id).then((url) => {
+          if (!url) return;
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = risk.type || 'Risco';
+          thumb.innerHTML = '';
+          thumb.appendChild(img);
+        });
+      } else {
+        thumb.textContent = riskIcon(risk.type);
+      }
+      list.appendChild(node);
+    }
+  }
+
   function renderTrails() {
     const list = $('trailsList');
     const trails = [...(state.activeTrail ? [{ ...state.activeTrail, isActive: true }] : []), ...state.trails];
@@ -805,6 +884,7 @@
     const template = $('trailTemplate');
     trails.forEach((trail) => {
       const node = template.content.firstElementChild.cloneNode(true);
+      node.dataset.trailId = trail.id;
       const obsCount = trail.observations?.length || state.observations.filter((obs) => obs.trailId === trail.id).length;
       const riskCount = trail.risks?.length || state.risks.filter((risk) => risk.trailId === trail.id).length;
       node.querySelector('.item-title').textContent = `${trail.name}${trail.isActive ? ' · em andamento' : ''}`;
@@ -1022,15 +1102,22 @@
   }
 
   async function activateSOS() {
+    // Começar o áudio imediatamente dentro do clique aumenta muito a chance de passar
+    // pelas políticas de autoplay dos navegadores móveis.
+    const sirenPromise = startSiren({ source: 'SOS' });
+    if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 600]);
+
     state.sosEvents.unshift({ id: uid('sos'), createdAt: new Date().toISOString(), location: getBestLocation() });
     saveState();
     $('sosOverlay').classList.remove('hidden');
     $('sosOverlay').classList.add('flashing');
     document.body.classList.add('sos-active');
     updateEmergencyMessage();
-    if (navigator.vibrate) navigator.vibrate([300, 120, 300, 120, 600]);
-    await startSiren();
-    await startLight();
+
+    const lightPromise = startLight();
+    const sirenStarted = await sirenPromise;
+    await lightPromise;
+    if (!sirenStarted) showSirenHelp('A sirene foi bloqueada pelo navegador. Use o botão “Testar sirene” e confira volume/silencioso.');
   }
 
   function stopSOS() {
@@ -1049,63 +1136,225 @@
     torch.active || document.body.classList.contains('sos-flash') ? stopLight() : await startLight();
   }
 
-  async function startSiren() {
+  function setupSirenAudio() {
+    const audio = $('sirenAudio');
+    const video = $('sirenVideo');
+    if (audio) {
+      audio.loop = true;
+      audio.preload = 'auto';
+      audio.volume = 1;
+      audio.muted = false;
+      audio.setAttribute('playsinline', '');
+      audio.load();
+      siren.audio = audio;
+    }
+    if (video) {
+      video.loop = true;
+      video.preload = 'auto';
+      video.volume = 1;
+      video.muted = false;
+      video.setAttribute('playsinline', '');
+      video.load();
+      siren.video = video;
+    }
+  }
+
+  function bindAudioUnlock() {
+    ['pointerdown', 'touchstart', 'click', 'keydown'].forEach((eventName) => {
+      document.addEventListener(eventName, primeAudio, { passive: true, once: false });
+    });
+  }
+
+  async function primeAudio() {
+    if (audioPrimed) return;
+    const unlockAudio = $('unlockAudio');
+    try {
+      if (unlockAudio) {
+        unlockAudio.muted = false;
+        unlockAudio.currentTime = 0;
+        const promise = unlockAudio.play();
+        if (promise && typeof promise.then === 'function') await withTimeout(promise, 600);
+        unlockAudio.pause();
+        unlockAudio.currentTime = 0;
+      }
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const ctx = new AudioContext({ latencyHint: 'interactive' });
+        if (ctx.state === 'suspended') await withTimeout(ctx.resume(), 600);
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        setTimeout(() => ctx.close().catch(() => null), 150);
+      }
+      audioPrimed = true;
+      setSirenStatus('Áudio preparado. O teste da sirene deve tocar imediatamente.', 'ok');
+    } catch (error) {
+      // Alguns navegadores bloqueiam até esse preparo. O start real ainda será tentado no clique do SOS.
+      console.warn('Pré-ativação de áudio bloqueada', error);
+    }
+  }
+
+  async function testSirenOnce() {
+    const ok = await startSiren({ source: 'teste' });
+    if (ok) {
+      toast('Sirene de teste tocando por 2 segundos.');
+      setTimeout(stopSiren, 2200);
+    }
+  }
+
+  async function startSiren(options = {}) {
     if (siren.active) return true;
+    // Dispara as duas tentativas imediatamente, sem esperar uma pela outra. Isso preserva
+    // a interação direta do usuário para as políticas de áudio de Safari/Chrome móveis.
+    const htmlPromise = startHtmlAudioSiren();
+    const videoPromise = startVideoSiren();
+    const webAudioPromise = startWebAudioSiren();
+    const results = await Promise.all([htmlPromise, videoPromise, webAudioPromise]);
+
+    const ok = results.some(Boolean);
+    siren.active = ok;
+    if (ok) {
+      $('btnSiren').textContent = 'Parar sirene';
+      setSirenStatus(options.source === 'teste' ? 'Sirene de teste ativa.' : 'Sirene ativa. Se não ouvir, confira volume, modo silencioso e permissões do navegador.', 'ok');
+      return true;
+    }
+
+    const reason = siren.lastError || 'O navegador bloqueou a reprodução de áudio.';
+    setSirenStatus(reason, 'error');
+    toast('A sirene não tocou. Confira volume/silencioso e toque em Testar sirene.');
+    return false;
+  }
+
+  async function startHtmlAudioSiren() {
+    const audio = siren.audio || $('sirenAudio');
+    if (!audio) {
+      siren.lastError = 'Elemento de áudio da sirene não encontrado.';
+      return false;
+    }
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.loop = true;
+      audio.volume = 1;
+      audio.muted = false;
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.then === 'function') await withTimeout(playPromise, 1300);
+      siren.audio = audio;
+      siren.htmlActive = true;
+      return true;
+    } catch (error) {
+      console.warn('Falha no áudio HTML da sirene', error);
+      siren.lastError = humanAudioError(error);
+      siren.htmlActive = false;
+      return false;
+    }
+  }
+
+  async function startVideoSiren() {
+    const video = siren.video || $('sirenVideo');
+    if (!video) return false;
+    try {
+      video.pause();
+      video.currentTime = 0;
+      video.loop = true;
+      video.volume = 1;
+      video.muted = false;
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.then === 'function') await withTimeout(playPromise, 1300);
+      siren.video = video;
+      siren.videoActive = true;
+      return true;
+    } catch (error) {
+      console.warn('Falha no vídeo/áudio de compatibilidade da sirene', error);
+      siren.videoActive = false;
+      return false;
+    }
+  }
+
+  async function startWebAudioSiren() {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (!AudioContext) {
-        toast('Áudio não disponível neste navegador.');
+        siren.lastError = 'Web Audio não está disponível neste navegador.';
         return false;
       }
-      const ctx = new AudioContext();
-      if (ctx.state === 'suspended') await ctx.resume();
+      const ctx = new AudioContext({ latencyHint: 'interactive' });
+      if (ctx.state === 'suspended') await withTimeout(ctx.resume(), 1300);
+
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-18, ctx.currentTime);
+      compressor.knee.setValueAtTime(24, ctx.currentTime);
+      compressor.ratio.setValueAtTime(8, ctx.currentTime);
+      compressor.attack.setValueAtTime(0.003, ctx.currentTime);
+      compressor.release.setValueAtTime(0.25, ctx.currentTime);
+      compressor.connect(ctx.destination);
 
       const masterGain = ctx.createGain();
       masterGain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      masterGain.connect(ctx.destination);
+      masterGain.connect(compressor);
 
       const oscA = ctx.createOscillator();
       const oscB = ctx.createOscillator();
+      const oscC = ctx.createOscillator();
       oscA.type = 'sawtooth';
       oscB.type = 'square';
-      oscA.frequency.setValueAtTime(720, ctx.currentTime);
-      oscB.frequency.setValueAtTime(360, ctx.currentTime);
-      oscA.connect(masterGain);
-      oscB.connect(masterGain);
+      oscC.type = 'triangle';
+      [oscA, oscB, oscC].forEach((osc) => osc.connect(masterGain));
+      oscA.frequency.setValueAtTime(700, ctx.currentTime);
+      oscB.frequency.setValueAtTime(350, ctx.currentTime);
+      oscC.frequency.setValueAtTime(980, ctx.currentTime);
       oscA.start();
       oscB.start();
-      masterGain.gain.setTargetAtTime(0.18, ctx.currentTime, 0.03);
+      oscC.start();
+      masterGain.gain.setTargetAtTime(0.34, ctx.currentTime, 0.025);
 
-      let high = false;
+      let step = 0;
       const pulseInterval = setInterval(() => {
         if (ctx.state === 'suspended') ctx.resume().catch(() => null);
-        high = !high;
+        step = (step + 1) % 4;
         const now = ctx.currentTime;
+        const high = step === 1 || step === 2;
         oscA.frequency.cancelScheduledValues(now);
         oscB.frequency.cancelScheduledValues(now);
+        oscC.frequency.cancelScheduledValues(now);
         masterGain.gain.cancelScheduledValues(now);
-        oscA.frequency.setTargetAtTime(high ? 1280 : 620, now, 0.045);
-        oscB.frequency.setTargetAtTime(high ? 640 : 310, now, 0.045);
-        masterGain.gain.setTargetAtTime(high ? 0.28 : 0.11, now, 0.035);
-      }, 360);
+        oscA.frequency.setTargetAtTime(high ? 1460 : 540, now, 0.035);
+        oscB.frequency.setTargetAtTime(high ? 730 : 270, now, 0.035);
+        oscC.frequency.setTargetAtTime(high ? 1180 : 420, now, 0.04);
+        masterGain.gain.setTargetAtTime(high ? 0.46 : 0.24, now, 0.03);
+      }, 290);
 
-      siren = { ctx, oscillators: [oscA, oscB], gain: masterGain, pulseInterval, active: true };
-      $('btnSiren').textContent = 'Parar sirene';
+      siren.ctx = ctx;
+      siren.oscillators = [oscA, oscB, oscC];
+      siren.gain = masterGain;
+      siren.pulseInterval = pulseInterval;
+      siren.webActive = true;
       return true;
     } catch (error) {
-      console.warn('Falha na sirene', error);
-      toast('Não consegui iniciar a sirene. Verifique volume/permissão e toque em Sirene novamente.');
+      console.warn('Falha no Web Audio da sirene', error);
+      siren.lastError = humanAudioError(error);
+      siren.webActive = false;
       return false;
     }
   }
 
   function stopSiren() {
     try {
+      if (siren.audio) {
+        siren.audio.pause();
+        siren.audio.currentTime = 0;
+      }
+      if (siren.video) {
+        siren.video.pause();
+        siren.video.currentTime = 0;
+      }
       if (siren.pulseInterval) clearInterval(siren.pulseInterval);
       if (siren.gain && siren.ctx && siren.ctx.state !== 'closed') {
         const now = siren.ctx.currentTime;
         siren.gain.gain.cancelScheduledValues(now);
-        siren.gain.gain.setTargetAtTime(0.0001, now, 0.03);
+        siren.gain.gain.setTargetAtTime(0.0001, now, 0.02);
       }
       (siren.oscillators || []).forEach((oscillator) => {
         try { oscillator.stop(); } catch (error) { /* já parado */ }
@@ -1115,8 +1364,36 @@
     } catch (error) {
       console.warn('Falha ao parar sirene', error);
     }
-    siren = { ctx: null, oscillators: [], gain: null, pulseInterval: null, active: false };
+    const audio = siren.audio || $('sirenAudio');
+    const video = siren.video || $('sirenVideo');
+    siren = { ctx: null, oscillators: [], gain: null, pulseInterval: null, audio, video, htmlActive: false, videoActive: false, webActive: false, active: false, lastError: '' };
     $('btnSiren').textContent = 'Sirene';
+    setSirenStatus('Sirene parada.', 'idle');
+  }
+
+  function withTimeout(promise, ms) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+    ]);
+  }
+
+  function humanAudioError(error) {
+    if (!error) return 'Não consegui iniciar o áudio.';
+    if (error.name === 'NotAllowedError') return 'O navegador bloqueou o som porque exigiu uma interação direta do usuário.';
+    if (error.message === 'timeout') return 'O navegador demorou demais para liberar o som.';
+    return `Falha ao iniciar áudio: ${error.message || error.name || 'erro desconhecido'}.`;
+  }
+
+  function setSirenStatus(message, tone = 'idle') {
+    const el = $('sirenStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.dataset.tone = tone;
+  }
+
+  function showSirenHelp(message) {
+    setSirenStatus(message, 'error');
   }
 
   async function startLight() {
@@ -1372,6 +1649,354 @@
       ...trailRisks.slice(0, 8).map((risk) => `- ${risk.type} · ${risk.severity} · ${risk.notes || 'sem nota'}`),
       trailRisks.length > 8 ? `- ...mais ${trailRisks.length - 8}` : ''
     ].filter((line) => line !== '').join('\n');
+  }
+
+
+  function buildRiskMeta(risk) {
+    const parts = [formatDateTime(risk.createdAt), `gravidade ${risk.severity}`];
+    const trail = findTrail(risk.trailId);
+    if (trail) parts.push(trail.name);
+    if (risk.location) parts.push(`${risk.location.lat.toFixed(5)}, ${risk.location.lng.toFixed(5)}`);
+    return parts.filter(Boolean).join(' · ');
+  }
+
+  function findObservation(id) {
+    return state.observations.find((obs) => obs.id === id) || null;
+  }
+
+  function findRisk(id) {
+    return state.risks.find((risk) => risk.id === id) || null;
+  }
+
+  function bindDetailModalControls() {
+    const modal = $('detailModal');
+    $('btnCloseDetail')?.addEventListener('click', closeDetailModal);
+    modal?.addEventListener('click', (event) => {
+      if (event.target === modal) closeDetailModal();
+      const mediaButton = event.target.closest('[data-detail-media]');
+      if (mediaButton && detailContext?.entity) {
+        const mediaId = mediaButton.dataset.detailMedia;
+        const media = (detailContext.media || []).find((item) => item.id === mediaId);
+        if (media) openMediaViewer(media, detailContext.title, detailContext.entity);
+        return;
+      }
+      const mapButton = event.target.closest('[data-open-location]');
+      if (mapButton && detailContext?.location) openLocationInMaps(detailContext.location);
+    });
+  }
+
+  function openObservationDetail(id) {
+    const obs = findObservation(id);
+    if (!obs) return;
+    const rows = [
+      ['Tipo', obs.type],
+      ['Status', obs.status],
+      ['Espécie/descrição', obs.species || '—'],
+      ['Comportamento', obs.behavior || '—'],
+      ['Ambiente', obs.habitat || '—'],
+      ['Notas', obs.notes || '—']
+    ];
+    const media = [...(obs.media || []), ...(obs.professionalPhotos || [])];
+    openDetailModal({
+      eyebrow: 'observação registrada',
+      title: obs.species || obs.type || 'Observação',
+      meta: buildObservationMeta(obs),
+      rows,
+      media,
+      location: obs.location,
+      entity: obs
+    });
+  }
+
+  function openRiskDetail(id) {
+    const risk = findRisk(id);
+    if (!risk) return;
+    const rows = [
+      ['Tipo', risk.type],
+      ['Gravidade', risk.severity],
+      ['Descrição', risk.notes || '—']
+    ];
+    openDetailModal({
+      eyebrow: 'risco / ponto útil',
+      title: risk.type || 'Ponto registrado',
+      meta: buildRiskMeta(risk),
+      rows,
+      media: risk.media || [],
+      location: risk.location,
+      entity: risk
+    });
+  }
+
+  function openDetailModal({ eyebrow, title, meta, rows, media, location, entity }) {
+    detailContext = { title, media: media || [], location: location || null, entity: entity || null };
+    $('detailEyebrow').textContent = eyebrow || 'detalhes';
+    $('detailTitle').textContent = title || 'Detalhes';
+    $('detailMeta').textContent = meta || '';
+    const body = $('detailBody');
+    body.innerHTML = '';
+
+    const list = document.createElement('div');
+    list.className = 'detail-list';
+    (rows || []).forEach(([label, value]) => {
+      const row = document.createElement('div');
+      row.className = 'detail-row';
+      const strong = document.createElement('strong');
+      strong.textContent = label;
+      const p = document.createElement('div');
+      p.className = 'detail-copy';
+      p.textContent = value || '—';
+      row.appendChild(strong);
+      row.appendChild(p);
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+
+    if (location) {
+      const locationRow = document.createElement('div');
+      locationRow.className = 'detail-row';
+      const strong = document.createElement('strong');
+      strong.textContent = 'Localização';
+      const p = document.createElement('div');
+      p.className = 'detail-copy';
+      p.textContent = `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ghost detail-map-link';
+      btn.dataset.openLocation = '1';
+      btn.textContent = 'Abrir no Maps';
+      locationRow.append(strong, p, btn);
+      body.appendChild(locationRow);
+    }
+
+    if (media && media.length) {
+      const mediaWrap = document.createElement('div');
+      mediaWrap.className = 'detail-row';
+      const strong = document.createElement('strong');
+      strong.textContent = 'Mídias';
+      const grid = document.createElement('div');
+      grid.className = 'detail-media-grid';
+      media.forEach((item, index) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'media-chip media-button';
+        btn.dataset.detailMedia = item.id;
+        const isImage = (item.type || '').startsWith('image/');
+        const isAudio = (item.type || '').startsWith('audio/');
+        btn.textContent = isImage ? `Foto ${index + 1}` : isAudio ? `Áudio ${index + 1}` : `Mídia ${index + 1}`;
+        grid.appendChild(btn);
+      });
+      mediaWrap.append(strong, grid);
+      body.appendChild(mediaWrap);
+    }
+
+    $('detailModal').classList.remove('hidden');
+  }
+
+  function closeDetailModal() {
+    $('detailModal').classList.add('hidden');
+    detailContext = null;
+  }
+
+  function bindTrailPlayerControls() {
+    $('btnCloseTrailPlayer')?.addEventListener('click', closeTrailPlayer);
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (!$('trailPlayerModal')?.classList.contains('hidden')) closeTrailPlayer();
+      if (!$('detailModal')?.classList.contains('hidden')) closeDetailModal();
+    });
+    $('trailPlayerModal')?.addEventListener('click', (event) => {
+      if (event.target === $('trailPlayerModal')) closeTrailPlayer();
+      const obsBtn = event.target.closest('[data-trail-obs-id]');
+      if (obsBtn) openObservationDetail(obsBtn.dataset.trailObsId);
+      const riskBtn = event.target.closest('[data-trail-risk-id]');
+      if (riskBtn) openRiskDetail(riskBtn.dataset.trailRiskId);
+    });
+    $('btnTrailPlayback')?.addEventListener('click', toggleTrailPlayback);
+    $('btnTrailPlaybackReset')?.addEventListener('click', resetTrailPlayback);
+    $('btnTrailPlayerMaps')?.addEventListener('click', () => {
+      const trail = getTrailById(trailPlayerState.trailId);
+      const points = trail?.points || [];
+      const loc = points[0] || points[points.length - 1];
+      if (loc) openLocationInMaps(loc);
+    });
+  }
+
+  function getTrailById(id) {
+    if (!id) return null;
+    if (state.activeTrail?.id === id) return state.activeTrail;
+    return state.trails.find((trail) => trail.id === id) || null;
+  }
+
+  async function openTrailPlayer(trailId, autoplay = false) {
+    const trail = getTrailById(trailId);
+    if (!trail) return;
+    $('trailPlayerModal').classList.remove('hidden');
+    $('trailPlayerTitle').textContent = trail.name || 'Trilha';
+    $('trailPlayerMeta').textContent = `${formatDateTime(trail.startTime)} · ${trail.place || 'local não informado'} · ${formatKm(trail.distanceMeters || 0)}`;
+    trailPlayerState.trailId = trail.id;
+    trailPlayerState.points = Array.isArray(trail.points) ? trail.points : [];
+    trailPlayerState.pointIndex = 0;
+    await initTrailPlayerMap();
+    renderTrailPlayerMap(trail);
+    renderTrailPlayerLists(trail);
+    if (autoplay) startTrailPlayback();
+  }
+
+  function closeTrailPlayer() {
+    stopTrailPlayback();
+    $('trailPlayerModal').classList.add('hidden');
+  }
+
+  async function initTrailPlayerMap() {
+    const ok = await loadLeafletAssets();
+    if (!ok || !window.L) return false;
+    if (trailPlayerState.map) {
+      setTimeout(() => trailPlayerState.map.invalidateSize(), 80);
+      return true;
+    }
+    trailPlayerState.map = L.map('trailPlayerMap', { zoomControl: true, preferCanvas: true }).setView([-14.2350, -51.9253], 4);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(trailPlayerState.map);
+    setTimeout(() => trailPlayerState.map.invalidateSize(), 100);
+    return true;
+  }
+
+  function renderTrailPlayerMap(trail) {
+    if (!trailPlayerState.map || !window.L) return;
+    stopTrailPlayback();
+    if (trailPlayerState.trailLayer) trailPlayerState.trailLayer.remove();
+    if (trailPlayerState.marker) trailPlayerState.marker.remove();
+    if (trailPlayerState.startMarker) trailPlayerState.startMarker.remove();
+    if (trailPlayerState.endMarker) trailPlayerState.endMarker.remove();
+    trailPlayerState.trailLayer = L.layerGroup().addTo(trailPlayerState.map);
+    const points = (trail.points || []).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+    trailPlayerState.points = points;
+    if (!points.length) {
+      $('trailPlayerObsList').innerHTML = '<div class="empty-state">Esta trilha ainda não possui pontos GPS gravados.</div>';
+      return;
+    }
+    const latLngs = points.map((point) => [point.lat, point.lng]);
+    L.polyline(latLngs, { color: '#224734', weight: 5, opacity: 0.9 }).addTo(trailPlayerState.trailLayer);
+    trailPlayerState.startMarker = L.marker(latLngs[0]).addTo(trailPlayerState.trailLayer).bindPopup('Início');
+    trailPlayerState.endMarker = L.marker(latLngs[latLngs.length - 1]).addTo(trailPlayerState.trailLayer).bindPopup('Fim');
+    trailPlayerState.marker = L.circleMarker(latLngs[0], { radius: 9, color: '#c58339', fillColor: '#f0c27b', fillOpacity: 0.95, weight: 3 }).addTo(trailPlayerState.trailLayer);
+    trailPlayerState.map.fitBounds(L.latLngBounds(latLngs), { padding: [24, 24], maxZoom: 16 });
+    setTimeout(() => trailPlayerState.map.invalidateSize(), 60);
+    updateTrailPlaybackButton(false);
+  }
+
+  function renderTrailPlayerLists(trail) {
+    const obsList = $('trailPlayerObsList');
+    const riskList = $('trailPlayerRiskList');
+    const trailObs = state.observations.filter((obs) => obs.trailId === trail.id);
+    const trailRisks = state.risks.filter((risk) => risk.trailId === trail.id);
+    obsList.innerHTML = '';
+    riskList.innerHTML = '';
+    if (!trailObs.length) {
+      obsList.textContent = 'Nenhuma observação nesta trilha.';
+      obsList.classList.add('empty-state');
+    } else {
+      obsList.classList.remove('empty-state');
+      trailObs.forEach((obs) => {
+        const row = document.createElement('div');
+        row.className = 'mini-item';
+        row.innerHTML = `<div class="mini-title">${escapeHtml(obs.species || obs.type)}</div><div class="mini-meta">${escapeHtml(buildObservationMeta(obs))}</div>`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'media-chip media-button';
+        btn.dataset.trailObsId = obs.id;
+        btn.textContent = 'Ver detalhes';
+        row.appendChild(btn);
+        obsList.appendChild(row);
+      });
+    }
+    if (!trailRisks.length) {
+      riskList.textContent = 'Nenhum risco ou ponto útil nesta trilha.';
+      riskList.classList.add('empty-state');
+    } else {
+      riskList.classList.remove('empty-state');
+      trailRisks.forEach((risk) => {
+        const row = document.createElement('div');
+        row.className = 'mini-item';
+        row.innerHTML = `<div class="mini-title">${escapeHtml(risk.type || 'Risco')}</div><div class="mini-meta">${escapeHtml(buildRiskMeta(risk))}</div>`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'media-chip media-button';
+        btn.dataset.trailRiskId = risk.id;
+        btn.textContent = 'Ver detalhes';
+        row.appendChild(btn);
+        riskList.appendChild(row);
+      });
+    }
+  }
+
+  function toggleTrailPlayback() {
+    if (trailPlayerState.playTimer) stopTrailPlayback();
+    else startTrailPlayback();
+  }
+
+  function startTrailPlayback() {
+    const points = trailPlayerState.points || [];
+    if (!points.length || !trailPlayerState.marker) {
+      toast('Esta trilha ainda não possui pontos GPS suficientes para playback.');
+      return;
+    }
+    stopTrailPlayback();
+    updateTrailPlaybackButton(true);
+    const speed = Number($('trailPlaybackSpeed')?.value || 1);
+    trailPlayerState.playTimer = setInterval(() => {
+      const step = Math.max(1, Math.round(speed));
+      trailPlayerState.pointIndex = Math.min(points.length - 1, trailPlayerState.pointIndex + step);
+      const point = points[trailPlayerState.pointIndex];
+      if (point) {
+        trailPlayerState.marker.setLatLng([point.lat, point.lng]);
+        trailPlayerState.map.panTo([point.lat, point.lng], { animate: true, duration: 0.25 });
+      }
+      if (trailPlayerState.pointIndex >= points.length - 1) stopTrailPlayback();
+    }, 220);
+  }
+
+  function stopTrailPlayback() {
+    if (trailPlayerState.playTimer) clearInterval(trailPlayerState.playTimer);
+    trailPlayerState.playTimer = null;
+    updateTrailPlaybackButton(false);
+  }
+
+  function resetTrailPlayback() {
+    stopTrailPlayback();
+    trailPlayerState.pointIndex = 0;
+    const point = trailPlayerState.points?.[0];
+    if (point && trailPlayerState.marker) {
+      trailPlayerState.marker.setLatLng([point.lat, point.lng]);
+      trailPlayerState.map.panTo([point.lat, point.lng], { animate: true, duration: 0.25 });
+    }
+  }
+
+  function updateTrailPlaybackButton(isPlaying) {
+    const button = $('btnTrailPlayback');
+    if (!button) return;
+    button.textContent = isPlaying ? 'Pausar' : 'Play';
+  }
+
+  function openLocationInMaps(loc) {
+    if (!loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) {
+      toast('Localização indisponível.');
+      return;
+    }
+    window.open(`https://maps.google.com/?q=${loc.lat},${loc.lng}`, '_blank', 'noopener');
+  }
+
+  function riskIcon(type) {
+    const label = String(type || '').toLowerCase();
+    if (label.includes('água')) return '💧';
+    if (label.includes('descanso')) return '🪑';
+    if (label.includes('sinal')) return '📡';
+    if (label.includes('animal')) return '⚠️';
+    if (label.includes('ponte')) return '🌉';
+    if (label.includes('árvore')) return '🌳';
+    return '⚠️';
   }
 
   function addChip(container, text) {

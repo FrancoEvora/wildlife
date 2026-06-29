@@ -7,7 +7,7 @@ Este projeto é um PWA estático. Não precisa de backend, banco externo, login 
 Descompacte o ZIP e entre na pasta:
 
 ```bash
-cd caderno_campo_github_vercel
+cd caderno_campo_v3
 ```
 
 Teste localmente:

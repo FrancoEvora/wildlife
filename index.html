@@ -6,17 +6,25 @@
   <meta name="theme-color" content="#173726">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Caderno de Campo">
-  <title>Caderno de Campo</title>
+  <title>Caderno de Campo · v4.0</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="appShell">
     <header class="app-header">
-      <div>
-        <p class="eyebrow">uso pessoal</p>
-        <h1>Caderno de Campo</h1>
-        <p class="header-subtitle">Trilhas, vida selvagem, fotografia e segurança em campo.</p>
+      <div class="brand-block">
+        <div class="brand-mark-wrap">
+          <img src="logo.svg" alt="Logo Caderno de Campo" class="brand-logo">
+        </div>
+        <div class="brand-copy">
+          <p class="eyebrow">uso pessoal</p>
+          <div class="title-row">
+            <h1>Caderno de Campo</h1>
+            <span class="pill version-pill">v4.0</span>
+          </div>
+          <p class="header-subtitle">Trilhas, vida selvagem, fotografia e segurança em campo.</p>
+        </div>
       </div>
       <div class="status-stack">
         <span id="onlineStatus" class="pill">verificando</span>
@@ -150,10 +158,20 @@
             <label>Descrição
               <textarea id="riskNotes" rows="3" placeholder="Ex.: pedra lisa depois do riacho; cuidado na volta"></textarea>
             </label>
+            <label>Imagem do risco / ponto útil
+              <input id="riskPhoto" type="file" accept="image/*" capture="environment">
+            </label>
             <input id="riskLat" type="hidden">
             <input id="riskLng" type="hidden">
             <button class="secondary" type="submit">Salvar ponto no mapa pessoal</button>
           </form>
+          <div class="inline-list-header">
+            <div>
+              <p class="eyebrow">campo</p>
+              <h3>Riscos e pontos úteis registrados</h3>
+            </div>
+          </div>
+          <div id="risksList" class="list empty-state">Nenhum risco ou ponto útil registrado ainda.</div>
         </article>
       </section>
 
@@ -212,7 +230,9 @@
           <h2>Modo SOS</h2>
           <p>Use quando precisar sinalizar sua posição ou compartilhar coordenadas. O navegador precisa estar aberto para tocar som, piscar tela e tentar controlar a lanterna.</p>
           <button id="btnActivateSOS" class="sos-button" type="button">Pressionar para SOS</button>
+          <p id="sirenStatus" class="siren-status" data-tone="idle">Toque em “Testar sirene” antes de ir para campo, com o volume do celular alto.</p>
           <div class="grid two">
+            <button id="btnTestSiren" class="secondary" type="button">Testar sirene</button>
             <button id="btnShareLocation" class="secondary" type="button">Compartilhar localização</button>
             <button id="btnCopyLocation" class="secondary" type="button">Copiar coordenadas</button>
           </div>
@@ -424,6 +444,28 @@
         <p class="item-meta"></p>
         <p class="item-notes"></p>
         <div class="media-row"></div>
+        <div class="item-actions">
+          <button class="media-chip media-button detail-trigger" type="button">Ver detalhes</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+
+  <template id="riskTemplate">
+    <article class="list-item">
+      <div class="thumb"></div>
+      <div class="list-content">
+        <div class="list-title-row">
+          <strong class="item-title"></strong>
+          <span class="pill item-type"></span>
+        </div>
+        <p class="item-meta"></p>
+        <p class="item-notes"></p>
+        <div class="media-row"></div>
+        <div class="item-actions">
+          <button class="media-chip media-button detail-trigger" type="button">Ver detalhes</button>
+        </div>
       </div>
     </article>
   </template>
@@ -437,6 +479,10 @@
         </div>
         <p class="item-meta"></p>
         <p class="item-notes"></p>
+        <div class="item-actions">
+          <button class="media-chip media-button trail-open-map" type="button">Ver no mapa</button>
+          <button class="media-chip media-button trail-open-play" type="button">Play da trilha</button>
+        </div>
         <details>
           <summary>Ver pontos e estatísticas</summary>
           <pre class="trail-details"></pre>
@@ -444,6 +490,63 @@
       </div>
     </article>
   </template>
+
+  <div id="detailModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card detail-modal-card">
+      <button id="btnCloseDetail" class="close-btn" type="button" aria-label="Fechar">×</button>
+      <p id="detailEyebrow" class="eyebrow">detalhes</p>
+      <h2 id="detailTitle">Detalhes</h2>
+      <p id="detailMeta" class="muted-text"></p>
+      <div id="detailBody" class="detail-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="trailPlayerModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card trail-player-card">
+      <button id="btnCloseTrailPlayer" class="close-btn" type="button" aria-label="Fechar">×</button>
+      <p class="eyebrow">relatório interativo</p>
+      <h2 id="trailPlayerTitle">Trilha no mapa</h2>
+      <p id="trailPlayerMeta" class="muted-text"></p>
+      <div class="trail-player-toolbar">
+        <button id="btnTrailPlayback" class="primary" type="button">Play</button>
+        <button id="btnTrailPlaybackReset" class="ghost" type="button">Reiniciar</button>
+        <button id="btnTrailPlayerMaps" class="ghost" type="button">Abrir no Maps</button>
+        <label class="speed-label">Velocidade
+          <select id="trailPlaybackSpeed">
+            <option value="1">1x</option>
+            <option value="2">2x</option>
+            <option value="4">4x</option>
+            <option value="8">8x</option>
+          </select>
+        </label>
+      </div>
+      <div id="trailPlayerMap" class="map-canvas mini-map" role="application" aria-label="Mapa de playback da trilha"></div>
+      <div class="grid two trail-related-grid">
+        <article class="sub-card">
+          <div class="section-title compact">
+            <div>
+              <p class="eyebrow">observações</p>
+              <h3>Observações registradas</h3>
+            </div>
+          </div>
+          <div id="trailPlayerObsList" class="mini-list empty-state">Nenhuma observação nesta trilha.</div>
+        </article>
+        <article class="sub-card">
+          <div class="section-title compact">
+            <div>
+              <p class="eyebrow">riscos</p>
+              <h3>Riscos e pontos úteis</h3>
+            </div>
+          </div>
+          <div id="trailPlayerRiskList" class="mini-list empty-state">Nenhum risco ou ponto útil nesta trilha.</div>
+        </article>
+      </div>
+    </div>
+  </div>
+
+  <audio id="sirenAudio" src="assets/siren.wav" preload="auto" loop playsinline></audio>
+  <video id="sirenVideo" src="assets/siren.mp4" preload="auto" loop playsinline></video>
+  <audio id="unlockAudio" src="assets/unlock.wav" preload="auto" playsinline></audio>
   <script src="app.js" defer></script>
 </body>
 </html>
