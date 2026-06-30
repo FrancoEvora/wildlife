@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10141d">
+<title>Futura Casa Pro | Central Comercial Autônoma</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="data.js" defer></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+<script src="app.js" defer></script>
+<script src="central-comercial.js" defer></script>
+</head>
+<body class="appDark">
+<header class="top">
+  <div class="top-inner">
+    <a class="logo" href="index.html"><img src="assets/futura-casa-logo-v1-1.webp" alt="Futura Casa Pro"><span class="sub">Central Comercial</span></a>
+    <nav class="nav">
+      <a href="index.html">Vendas</a>
+      <a class="active" href="central-comercial.html">Central IA</a>
+      <a href="gestao.html">Gestão</a>
+      <a href="pos-venda.html">Pós-venda</a>
+      <a href="ocorrencias.html">Ocorrências</a>
+    </nav>
+  </div>
+</header>
+<main>
+<section class="page">
+  <div class="page-inner">
+    <div class="page-title">
+      <span class="badge">Central Comercial Autônoma</span>
+      <h1>Conduzir cada lead até o próximo passo comercial.</h1>
+      <p>Agente SDR IA, recomendação de estoque, handoff inteligente, follow-up contextual, objeções, forecast e torre de controle.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Operação comercial assistida por IA</h2>
+        <p>Todo lead recebe o argumento certo, o produto certo, o próximo passo certo e o corretor certo.</p>
+      </div>
+      <div class="panel-body" id="centralApp"></div>
+    </div>
+  </div>
+</section>
+</main>
+<div id="toast" class="toast"></div>
+<div id="modal" class="modal"></div>
+</body>
+</html>

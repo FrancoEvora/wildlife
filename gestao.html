@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#10141d">
-<title>Futura Casa Pro | Vendas</title>
+<title>Futura Casa Pro | Gestão</title>
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <script src="data.js" defer></script>
@@ -16,9 +16,9 @@
   <div class="top-inner">
     <a class="logo" href="index.html"><img src="assets/futura-casa-logo-v1-1.webp" alt="Futura Casa Pro"><span class="sub">Compra guiada</span></a>
     <nav class="nav">
-      <a class="active" href="index.html">Vendas</a>
+      <a class="" href="index.html">Vendas</a>
       <a class="" href="central-comercial.html">Central IA</a>
-      <a class="" href="gestao.html">Gestão</a>
+      <a class="active" href="gestao.html">Gestão</a>
       <a class="" href="pos-venda.html">Pós-venda</a>
       <a class="" href="ocorrencias.html">Ocorrências</a>
     </nav>
@@ -26,22 +26,11 @@
 </header>
 <main>
 
-<section class="shell hero">
-  <div class="hero-copy">
-    <span class="badge">Futura Casa Pro</span>
-    <h1>O que você quer montar hoje?</h1>
-    <p>Escolha primeiro a jornada. Depois a plataforma guia o próximo passo.</p>
-    <div class="benefits">
-      <div class="benefit"><i>⌂</i><div><b>Escolha sua jornada</b><small>Comece por lote, lote + casa ou casa para seu lote.</small></div></div>
-      <div class="benefit"><i>◎</i><div><b>Veja antes de decidir</b><small>Mapa, rota, AR e imagem ajudam a enxergar cada escolha.</small></div></div>
-      <div class="benefit"><i>↗</i><div><b>Avance para a proposta</b><small>Simule valores e encaminhe sua escolha para atendimento.</small></div></div>
-    </div>
+<section class="page">
+  <div class="page-inner">
+    <div class="page-title"><span class="badge">Gestão</span><h1>Painel de Gestão</h1><p>Visão comercial, ocorrências e atualização das obras.</p></div>
+    <div class="panel"><div class="panel-head"><h2>Gestão do empreendimento</h2><p>Dados atualizados conforme as interações da plataforma.</p></div><div class="panel-body" id="gestaoApp"></div></div>
   </div>
-  <div class="phone" id="salesApp"></div>
-</section>
-<section class="shell">
-  <div class="page-title"><span class="badge">Lotes recomendados</span><h2>Escolha primeiro. Depois aprofunde.</h2></div>
-  <div class="grid cols-3" id="lotPicker"></div>
 </section>
 
 </main>

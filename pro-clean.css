@@ -1,0 +1,224 @@
+
+/* Futura Casa Pro v1.1 — Clean Flow */
+body.fcProActive header,
+body.fcProActive .clientBottomNav,
+body.fcProActive .bottomNav,
+body.fcProActive .continueDock,
+body.fcProActive #journeyFloatingBar{display:none!important}
+body.fcProActive{background:#0f1722!important;padding-bottom:0!important}
+body.fcProActive #futuraCasaProApp{min-height:100dvh!important;padding:0!important;background:radial-gradient(circle at 78% 6%,rgba(32,159,159,.34),transparent 30%),radial-gradient(circle at 0% 20%,rgba(201,90,53,.28),transparent 32%),linear-gradient(135deg,#121827 0%,#172131 44%,#0d2f32 100%)!important}
+.fcCleanShell{width:min(1180px,100%);min-height:100dvh;margin:0 auto;padding:24px 20px max(24px,env(safe-area-inset-bottom));display:grid;grid-template-rows:auto 1fr;gap:18px}
+.fcCleanTopbar{display:flex;align-items:center;justify-content:space-between;gap:16px;color:#fff}
+.fcCleanBrand{display:flex;align-items:center;gap:12px}.fcCleanBrandMark{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#C95A35,#209F9F);box-shadow:0 14px 36px rgba(0,0,0,.22)}
+.fcCleanBrand b{display:block;font-size:20px;letter-spacing:-.04em}.fcCleanBrand small{display:block;color:rgba(255,255,255,.60);font-weight:800;margin-top:2px}
+.fcCleanTopActions{display:flex;gap:8px;align-items:center}.fcCleanTopActions .btn{min-height:42px!important;border-radius:999px!important}
+.fcCleanMain{display:grid;grid-template-columns:minmax(0,.86fr) minmax(360px,1.14fr);gap:20px;align-items:stretch}
+.fcCleanIntro{color:#fff;display:grid;align-content:center;gap:22px;padding:22px 0}
+.fcCleanIntro h1{margin:0;font-size:clamp(48px,8vw,96px);line-height:.90;letter-spacing:-.09em}
+.fcCleanIntro p{margin:0;max-width:560px;color:rgba(255,255,255,.70);font-size:19px;line-height:1.45}
+.fcCleanBenefitList{display:grid;gap:14px;margin-top:12px}.fcCleanBenefit{display:flex;align-items:center;gap:14px;color:#fff}
+.fcCleanBenefitIcon{width:58px;height:58px;border-radius:50%;border:2px solid rgba(32,159,159,.70);display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.06);font-size:24px}
+.fcCleanBenefit b{display:block;font-size:18px}.fcCleanBenefit small{display:block;color:rgba(255,255,255,.58);margin-top:2px;line-height:1.28}
+.fcCleanRoutes{display:grid;gap:10px;margin-top:8px}.fcCleanRoute{appearance:none;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;border-radius:22px;padding:16px;text-align:left;display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:center;cursor:pointer;transition:.18s ease}
+.fcCleanRoute:hover{transform:translateY(-2px);border-color:rgba(32,159,159,.46);background:rgba(255,255,255,.12)}
+.fcCleanRoute.active{background:linear-gradient(135deg,#C95A35,#A8431F);border-color:rgba(255,255,255,.18);box-shadow:0 20px 60px rgba(201,90,53,.24)}
+.fcCleanRoute span{display:grid;place-items:center;width:40px;height:40px;border-radius:13px;background:rgba(255,255,255,.14);font-weight:950}
+.fcCleanRoute b{display:block;line-height:1.05;letter-spacing:-.025em}.fcCleanRoute small{display:block;margin-top:3px;color:rgba(255,255,255,.62);line-height:1.26;font-weight:750}.fcCleanRoute i{font-style:normal;font-size:22px}
+.fcCleanPhone{background:#f7efe5;border:1px solid rgba(255,255,255,.24);border-radius:38px;box-shadow:0 30px 100px rgba(0,0,0,.30);overflow:hidden;min-height:720px;display:grid;grid-template-rows:auto auto 1fr auto}
+.fcCleanPhoneHead{padding:24px 24px 16px;background:linear-gradient(180deg,#fffdf9,#fbf4eb);border-bottom:1px solid var(--line)}
+.fcCleanPhoneHeadTop{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.fcCleanPhoneHead h2{margin:8px 0 6px;font-size:34px;line-height:1;letter-spacing:-.06em}.fcCleanPhoneHead p{margin:0;color:var(--muted);line-height:1.38}
+.fcCleanSteps{display:flex;gap:7px;overflow:auto;padding:12px 20px;background:#fffdf9;border-bottom:1px solid var(--line);scrollbar-width:none}.fcCleanSteps::-webkit-scrollbar{display:none}
+.fcCleanStep{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:9px 11px;min-width:max-content;font-size:12px;font-weight:950}.fcCleanStep.active{color:#fff;background:#C95A35;border-color:#C95A35}
+.fcCleanContent{padding:20px;overflow:auto;display:grid;align-content:start;gap:14px}.fcCleanCardGrid{display:grid;gap:12px}
+.fcCleanCard{border:1px solid var(--line);background:#fff;border-radius:24px;padding:16px;display:grid;gap:12px;box-shadow:0 16px 46px rgba(16,20,29,.08)}.fcCleanCard.selected{border-color:rgba(201,90,53,.48);box-shadow:0 18px 56px rgba(201,90,53,.16)}
+.fcCleanCardTop{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.fcCleanCard h3{margin:0;font-size:21px;line-height:1.05;letter-spacing:-.035em}
+.fcCleanTag{display:inline-flex;align-items:center;gap:6px;width:max-content;padding:7px 10px;border-radius:999px;background:#fbf4eb;border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:900}.fcCleanTag.available{background:#E9F6EA;color:#2c733e}.fcCleanTag.reserved{background:#FFF1E8;color:#C95A35}.fcCleanTag.sold{background:#ECEFF2;color:#687386}
+.fcCleanMeta{display:flex;flex-wrap:wrap;gap:7px}.fcCleanMeta span{background:#f7f1e9;border:1px solid var(--line);border-radius:999px;padding:7px 9px;color:var(--muted);font-size:12px;font-weight:850}
+.fcCleanActions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.fcCleanActions .btn{min-height:44px!important;border-radius:15px!important}.fcCleanActions .primaryOne{grid-column:1/-1}
+.fcCleanMap{position:relative;background:#fff;border:1px solid var(--line);border-radius:24px;overflow:hidden}.fcCleanMap img{width:100%;display:block}.fcCleanMap .fcMapOverlay{position:absolute;inset:0}
+.fcCleanSummary{padding:18px 20px 20px;border-top:1px solid var(--line);background:#10141d;color:#fff;display:grid;gap:12px}.fcCleanSummaryRows{display:grid;gap:8px}.fcCleanSummaryRow{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.09)}.fcCleanSummaryRow span{color:rgba(255,255,255,.60)}.fcCleanSummaryRow b{text-align:right}.fcCleanTotal{font-size:34px;line-height:1;letter-spacing:-.06em}.fcCleanToolBox{display:grid;gap:9px}
+.fcCleanSimGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.fcCleanField{display:grid;gap:7px}.fcCleanField label{color:var(--muted);font-size:13px;font-weight:900}
+.fcCleanField input,.fcCleanField select,.fcCleanField textarea{min-height:50px;border:1px solid var(--line);border-radius:16px;background:#fff;padding:0 13px;color:var(--ink);font:inherit;font-weight:850}.fcCleanField.full{grid-column:1/-1}
+.fcCleanResults{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.fcCleanResult{border:1px solid var(--line);background:#fffdf9;border-radius:18px;padding:13px}.fcCleanResult small{display:block;color:var(--muted);font-weight:850}.fcCleanResult b{display:block;margin-top:4px;font-size:18px}
+.fcCleanClassic{border:0;background:transparent;color:rgba(255,255,255,.70);font-weight:900;text-decoration:underline;text-underline-offset:4px}.fcCleanEmpty{border:1px dashed var(--line);border-radius:24px;padding:20px;background:#fffdf9;color:var(--muted)}
+.fcCleanPrimary{background:#C95A35!important;color:#fff!important;box-shadow:none!important}.fcCleanSecondary{background:#fff!important;color:#C95A35!important;border:1px solid #C95A35!important;box-shadow:none!important}.fcCleanGhost{background:transparent!important;color:#C95A35!important;border:0!important;box-shadow:none!important}
+@media(max-width:980px){.fcCleanShell{padding:14px 12px}.fcCleanMain{grid-template-columns:1fr}.fcCleanIntro{align-content:start}.fcCleanPhone{min-height:auto}}
+@media(max-width:620px){.fcCleanTopActions .fcCleanClassic{display:none}.fcCleanIntro h1{font-size:50px}.fcCleanRoute{grid-template-columns:auto 1fr}.fcCleanRoute i{display:none}.fcCleanPhone{border-radius:28px}.fcCleanPhoneHead{padding:20px 18px 14px}.fcCleanContent{padding:16px}.fcCleanSummary{padding:16px}.fcCleanSimGrid,.fcCleanResults{grid-template-columns:1fr}}
+
+
+/* v2.4 — ajustes finais de UI, logo e hierarquia visual */
+body.fcProActive #futuraCasaProApp{
+  padding:0!important;
+}
+.fcCleanShell{
+  padding-top:18px!important;
+}
+.fcCleanTopbar{
+  align-items:flex-start!important;
+}
+.fcCleanBrand{
+  min-width:0;
+}
+.fcCleanLogoMain{
+  width:164px;
+  height:auto;
+  display:block;
+  object-fit:contain;
+  filter:drop-shadow(0 18px 38px rgba(0,0,0,.22));
+}
+.fcCleanBrandText{
+  display:none!important;
+}
+.fcCleanTopActions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  flex-wrap:wrap;
+  max-width:560px;
+}
+.fcCleanTopActions a.fcCleanClassic,
+.fcCleanTopActions button.fcCleanClassic{
+  text-decoration:none!important;
+  min-height:42px;
+  border-radius:999px;
+  padding:0 14px;
+  border:1px solid rgba(255,255,255,.20);
+  color:rgba(255,255,255,.84);
+  background:rgba(255,255,255,.08);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+}
+.fcCleanTopActions a.fcCleanClassic:hover,
+.fcCleanTopActions button.fcCleanClassic:hover{
+  background:rgba(255,255,255,.14);
+  color:#fff;
+}
+.fcCleanIntro h1{
+  letter-spacing:-.085em;
+}
+.fcCleanBenefitIcon{
+  color:#fff;
+  font-size:22px;
+}
+.fcCleanBenefit small{
+  color:rgba(255,255,255,.64);
+}
+.fcCleanActions{
+  grid-template-columns:1fr!important;
+}
+.fcCleanActions .btn,
+.fcCleanToolBox .btn{
+  width:100%;
+  min-height:48px!important;
+  border-radius:16px!important;
+  font-weight:950!important;
+}
+.fcCleanPrimary{
+  background:#C95A35!important;
+  color:#fff!important;
+  border:1px solid #C95A35!important;
+  box-shadow:0 14px 34px rgba(201,90,53,.18)!important;
+}
+.fcCleanSecondary{
+  background:#fff!important;
+  color:#C95A35!important;
+  border:1.5px solid #C95A35!important;
+  box-shadow:none!important;
+}
+.fcCleanGhost{
+  background:transparent!important;
+  color:#C95A35!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.fcCleanSummary{
+  padding:18px!important;
+  gap:14px!important;
+  border-top:1px solid rgba(255,255,255,.08)!important;
+  background:linear-gradient(180deg,#10141d,#0d121c)!important;
+}
+.fcCleanSummary::before{
+  content:"Resumo da escolha";
+  display:inline-flex;
+  width:max-content;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+  color:rgba(255,255,255,.82);
+  padding:7px 10px;
+  font-size:11px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  font-weight:950;
+}
+.fcCleanSummaryRows{
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:18px;
+  padding:4px 14px;
+}
+.fcCleanSummaryRow{
+  padding:10px 0!important;
+  border-bottom:1px solid rgba(255,255,255,.08)!important;
+  align-items:flex-start;
+}
+.fcCleanSummaryRow:last-child{
+  border-bottom:0!important;
+}
+.fcCleanSummaryRow span{
+  color:rgba(255,255,255,.62)!important;
+  font-weight:800;
+}
+.fcCleanSummaryRow b{
+  color:#fff;
+  line-height:1.25;
+  max-width:62%;
+}
+.fcCleanTotal{
+  font-size:clamp(32px,6vw,48px)!important;
+  margin:0!important;
+}
+.fcCleanToolBox{
+  gap:10px!important;
+}
+.fcCleanCard .muted{
+  color:#687386!important;
+}
+.fcCleanStep{
+  white-space:nowrap;
+}
+@media(max-width:780px){
+  .fcCleanTopbar{
+    display:grid!important;
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+  .fcCleanLogoMain{
+    width:150px;
+  }
+  .fcCleanTopActions{
+    width:100%;
+    max-width:none;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .fcCleanTopActions a.fcCleanClassic,
+  .fcCleanTopActions button.fcCleanClassic{
+    min-width:0;
+    padding:0 10px;
+    font-size:13px;
+  }
+}
+@media(max-width:520px){
+  .fcCleanTopActions{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .fcCleanIntro{
+    gap:16px!important;
+  }
+  .fcCleanIntro h1{
+    font-size:44px!important;
+  }
+}

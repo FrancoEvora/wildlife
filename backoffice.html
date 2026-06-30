@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Futura Casa | Backoffice</title>
+<style>
+:root{--bg:#f5efe7;--paper:#fffdf9;--paper2:#fbf4eb;--ink:#151922;--muted:#697280;--line:#e7dccd;--orange:#f36f2f;--orange2:#ff8f50;--dark:#111721;--shadow:0 18px 54px rgba(16,20,29,.10)}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% -10%,rgba(243,111,47,.18),transparent 32rem),var(--bg);font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:var(--ink)}a{text-decoration:none;color:inherit}
+.wrap{width:min(100% - 34px,1280px);margin:auto}.top{position:sticky;top:0;background:rgba(17,23,33,.96);color:#fff;z-index:8;box-shadow:0 10px 34px rgba(0,0,0,.18);backdrop-filter:blur(14px)}.topin{min-height:86px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand small{display:block;color:#ffb289;text-transform:uppercase;letter-spacing:.18em;font-weight:900;font-size:11px}.brand b{font-size:24px}.btn{border:0;border-radius:15px;min-height:46px;padding:0 16px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;gap:8px}.btn.primary{background:linear-gradient(180deg,var(--orange2),var(--orange));color:#fff}.btn.light{background:#fff;color:var(--ink);border:1px solid var(--line)}.hero{padding:34px 0 18px}.heroCard{background:linear-gradient(135deg,#111721 0%,#243343 55%,#6c3519 100%);color:#fff;border-radius:32px;padding:32px;box-shadow:var(--shadow)}.eyebrow{color:var(--orange);font-size:12px;letter-spacing:.18em;text-transform:uppercase;font-weight:950}.hero h1{font-size:clamp(38px,6vw,82px);line-height:1;margin:10px 0 12px;letter-spacing:-.065em}.hero p{max-width:780px;color:rgba(255,255,255,.78);font-size:18px;line-height:1.55}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.card{background:var(--paper);border:1px solid var(--line);border-radius:28px;padding:22px;box-shadow:var(--shadow);display:grid;gap:12px;min-height:220px}.card .icon{width:54px;height:54px;border-radius:18px;background:#fff1e8;color:var(--orange);display:grid;place-items:center;font-weight:950}.card h2{margin:0;font-size:25px;letter-spacing:-.04em}.card p{margin:0;color:var(--muted);line-height:1.45}.panel{margin:18px 0;background:var(--paper);border:1px solid var(--line);border-radius:28px;padding:24px;box-shadow:var(--shadow)}.panel h2{margin:0 0 8px;font-size:28px}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.kpi{background:var(--paper2);border:1px solid var(--line);border-radius:22px;padding:18px}.kpi small{display:block;color:var(--muted);font-weight:800}.kpi b{font-size:32px;color:var(--orange)}@media(max-width:980px){.grid,.kpis{grid-template-columns:1fr}.topin{display:grid;padding:16px 0}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap topin"><div class="brand"><small>Futura Casa</small><b>Backoffice</b></div><nav><a class="btn light" href="index.html">Voltar à plataforma</a></nav></div></header>
+<main class="wrap">
+  <section class="hero"><div class="heroCard"><div class="eyebrow">Operação da plataforma</div><h1>Gestão separada da jornada do cliente.</h1><p>O backoffice centraliza estoque, condições comerciais, reservas, campo e wellness sem poluir a experiência pública.</p></div></section>
+  <section class="kpis">
+    <article class="kpi"><small>Reservas ativas</small><b>12</b></article>
+    <article class="kpi"><small>Lotes disponíveis</small><b>86</b></article>
+    <article class="kpi"><small>Propostas simuladas</small><b>34</b></article>
+    <article class="kpi"><small>Pedidos wellness</small><b>9</b></article>
+  </section>
+  <section class="grid">
+    <a class="card" href="index.html#mapa"><span class="icon">E</span><h2>Estoque e mapa</h2><p>Controle de disponibilidade, quadras, lotes e visualização de estoque.</p><span class="btn primary">Abrir mapa</span></a>
+    <a class="card" href="index.html#bandeja"><span class="icon">F</span><h2>Parâmetros financeiros</h2><p>Juros, correção, sistemas de amortização, modelos comerciais e proposta.</p><span class="btn primary">Abrir simulador</span></a>
+    <a class="card" href="index.html#atendimento"><span class="icon">R</span><h2>Reservas e atendimento</h2><p>Gestão de reservas, consultores, agendamentos e contatos comerciais.</p><span class="btn primary">Abrir atendimento</span></a>
+    <a class="card" href="backend-wellness.html"><span class="icon">♥</span><h2>Wellness</h2><p>Loja wellness, aromaterapia, avaliações, coluna do médico e pedidos.</p><span class="btn primary">Abrir backend wellness</span></a><a class="card" href="backoffice-corretores.html"><span class="icon">C</span><h2>Corretores</h2><p>Parceiros, links rastreáveis, leads, propostas e atribuição comercial.</p><span class="btn primary">Abrir corretores</span></a>
+  </section>
+  <section class="panel"><h2>Próximos módulos recomendados</h2><p>Campo/Drone, CRM de consultores, painel de disponibilidade em tempo real, importador de planilha de lotes, biblioteca de casas e gestão de mídia por lote.</p></section>
+</main>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "Futura Casa Pro v3.0 Central Comercial Autônoma",
+  "short_name": "Futura Pro IA",
+  "start_url": "central-comercial.html",
+  "display": "standalone",
+  "background_color": "#10141d",
+  "theme_color": "#10141d",
+  "icons": []
+}
