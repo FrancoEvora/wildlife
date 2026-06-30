@@ -18,3 +18,6 @@ Arquivos:
 
 ## Atualização v3.1
 - Mapas do empreendimento migrados para OpenStreetMap com coordenadas reais dos lotes.
+
+## Atualização v3.2
+- Lotes vetoriais clicáveis e rótulos de quadra/lote diretamente no mapa OSM.

@@ -44,28 +44,68 @@ function buildMap(id, options={}){
   return map;
 }
 function statusClass(status){return status==='Disponível' ? 'disp' : status==='Reservado' ? 'res' : 'vend'}
+function lotStatusColors(status,selected=false){
+  if(status==='Reservado') return selected?{stroke:'#8f3d1e',fill:'#e9c1b4',text:'#622611'}:{stroke:'#c95a35',fill:'#f4d9cf',text:'#8f3d1e'};
+  if(status==='Vendido') return selected?{stroke:'#4b5563',fill:'#d6dae0',text:'#243042'}:{stroke:'#7b8794',fill:'#eceff3',text:'#4b5563'};
+  return selected?{stroke:'#0d4f53',fill:'#9ee1df',text:'#0d3f42'}:{stroke:'#209f9f',fill:'#d8f2f1',text:'#0b6060'};
+}
+function parseDims(str){
+  const nums=(str||'').match(/(\d+[\.,]?\d*)/g)||[];
+  if(nums.length>=2){
+    const a=parseFloat(nums[0].replace(',','.'));
+    const b=parseFloat(nums[1].replace(',','.'));
+    return {w:a,h:b};
+  }
+  const side=Math.sqrt(Number(arguments[1]?.area)||450);
+  return {w:side,h:side};
+}
+const lotAngles={H14:-28,A39:26,A12:62,B08:6,D07:74,F09:0};
+function getLotAngle(lot){return lotAngles[lot.id] ?? 0}
+function metersToLat(m){return m/111320}
+function metersToLng(m,lat){return m/(111320*Math.cos(lat*Math.PI/180))}
+function buildLotPolygon(lot){
+  const dims=parseDims(lot.dims,lot);
+  const w=(dims.w||15)+1.5, h=(dims.h||30)+1.5;
+  const a=getLotAngle(lot)*Math.PI/180;
+  const hw=w/2, hh=h/2;
+  const pts=[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([x,y])=>{
+    const xr=x*Math.cos(a)-y*Math.sin(a);
+    const yr=x*Math.sin(a)+y*Math.cos(a);
+    return [lot.lat+metersToLat(yr), lot.lng+metersToLng(xr,lot.lat)];
+  });
+  return pts;
+}
+function lotPopup(l){
+  return `<div class="map-popup"><b>Q${l.quadra} · Lote ${l.lote}</b><br>${l.status} · ${l.area.toLocaleString('pt-BR')} m²<br>${l.rua}<br><small>${brl(l.valor)}</small><div class="popup-actions"><button class="mini-btn" onclick="details('${l.id}')">Detalhes</button><button class="mini-btn" onclick="openRoute('${l.id}')">Rota</button></div></div>`;
+}
 function addLotMarkers(map, opts={}){
   const selectedId=opts.selectedId || null;
   const lotList=opts.onlyIds ? FC.lots.filter(l=>opts.onlyIds.includes(l.id)) : FC.lots;
+  const group=[];
   lotList.forEach(l=>{
     const isSelected=l.id===selectedId;
-    const marker=L.circleMarker([l.lat,l.lng],{
-      radius:isSelected?10:7,
-      color:isSelected?'#14323e':(l.status==='Disponível'?'#209f9f':'#c95a35'),
-      weight:isSelected?3:2,
-      fillColor:l.status==='Disponível'?'#209f9f':'#c95a35',
-      fillOpacity:isSelected?0.95:0.84
+    const colors=lotStatusColors(l.status,isSelected);
+    const poly=L.polygon(buildLotPolygon(l),{
+      color:colors.stroke,
+      weight:isSelected?3:1.8,
+      fillColor:colors.fill,
+      fillOpacity:isSelected?0.92:0.78,
+      className:'lot-footprint'
     }).addTo(map);
-    const label=`Q${l.quadra} · Lote ${l.lote}`;
-    marker.bindTooltip(label,{permanent:!!opts.permanentLabels && (isSelected || opts.showAllLabels), direction:'top', offset:[0,-8], className:`lot-tip ${statusClass(l.status)} ${isSelected?'selected':''}`});
-    marker.bindPopup(`<div class="map-popup"><b>${label}</b><br>${l.status} · ${l.area.toLocaleString('pt-BR')} m²<br>${l.rua}<br><small>${brl(l.valor)}</small></div>`);
-    marker.on('click',()=>{ if(opts.onSelect) opts.onSelect(l); if(opts.openPopup!==false) marker.openPopup(); });
+    const labelIcon=L.divIcon({className:'lot-label-wrap',html:`<div class="lot-label ${statusClass(l.status)} ${isSelected?'selected':''}">${l.quadra}-${String(l.lote).padStart(2,'0')}</div>`});
+    const label=L.marker([l.lat,l.lng],{icon:labelIcon,keyboard:false}).addTo(map);
+    poly.bindPopup(lotPopup(l));
+    label.bindPopup(lotPopup(l));
+    const handle=()=>{ if(opts.onSelect) opts.onSelect(l); if(opts.openPopup!==false) poly.openPopup(); };
+    poly.on('click',handle); label.on('click',handle);
+    group.push({poly,label,lot:l});
   });
+  return group;
 }
 function renderSalesMap(lot){
   const map=buildMap('salesMap',{fit:true,pad:0.00045,zoomControl:true});
   if(!map) return;
-  addLotMarkers(map,{selectedId:lot.id, permanentLabels:true, showAllLabels:false, onSelect:(l)=>{ if(l.id!==selectedLot().id) selectLot(l.id); }});
+  addLotMarkers(map,{selectedId:lot.id, permanentLabels:true, showAllLabels:true, onSelect:(l)=>{ if(l.id!==selectedLot().id){ selectLot(l.id); toast(`Lote Q${l.quadra}-${l.lote} selecionado no mapa.`);} }});
 }
 function renderDashMap(){
   const map=buildMap('gestaoMap',{fit:true,pad:0.0005, dragging:true});
@@ -78,7 +118,7 @@ function renderOccurrenceMap(currentGeo, inside){
   if(!currentGeo || inside){
     const map=buildMap('occMap',{fit:true,pad:0.00055});
     if(!map) return;
-    addLotMarkers(map,{selectedId:selectedLot().id, permanentLabels:true, showAllLabels:false, onSelect:(l)=>details(l.id), openPopup:false});
+    addLotMarkers(map,{selectedId:selectedLot().id, permanentLabels:true, showAllLabels:true, onSelect:(l)=>details(l.id), openPopup:false});
     if(currentGeo){
       L.circle([currentGeo.lat,currentGeo.lng],{radius:Math.max(8,currentGeo.accuracy||12), color:'#1d4ed8', fillColor:'#2563eb', fillOpacity:0.14, weight:2}).addTo(map);
       const m=L.circleMarker([currentGeo.lat,currentGeo.lng],{radius:8,color:'#fff',weight:2,fillColor:'#1d4ed8',fillOpacity:1}).addTo(map);
@@ -92,7 +132,7 @@ function renderOccurrenceMap(currentGeo, inside){
 function renderModalLotMap(id, lot, mode='selected'){
   const map=buildMap(id,{center:[lot.lat,lot.lng], zoom:18, fit:false});
   if(!map) return;
-  addLotMarkers(map,{selectedId:lot.id, permanentLabels:true, showAllLabels:false, onSelect:null, openPopup:false});
+  addLotMarkers(map,{selectedId:lot.id, permanentLabels:true, showAllLabels:true, onSelect:null, openPopup:false});
 }
 
 function openAR(id){

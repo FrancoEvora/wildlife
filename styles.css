@@ -322,3 +322,16 @@ p{line-height:1.45}
 .leaflet-popup-tip{box-shadow:none}
 .map-popup{font:600 13px/1.45 Inter,system-ui,sans-serif;color:#182034}
 .map-tools{z-index:500}
+
+
+/* v3.2 lotes vetoriais */
+.lot-footprint{transition:all .2s ease}
+.lot-label-wrap{background:none;border:0}
+.lot-label{display:flex;align-items:center;justify-content:center;min-width:52px;height:26px;padding:0 10px;border-radius:999px;background:#fff;border:1.5px solid rgba(20,50,62,.14);font:800 12px/1 Inter,system-ui,sans-serif;color:#182034;box-shadow:0 8px 20px rgba(16,20,29,.12)}
+.lot-label.disp{border-color:rgba(32,159,159,.28);background:#f7ffff;color:#0f6363}
+.lot-label.res{border-color:rgba(201,90,53,.28);background:#fff8f4;color:#8f3d1e}
+.lot-label.vend{border-color:rgba(123,135,148,.28);background:#f6f8fa;color:#4b5563}
+.lot-label.selected{transform:scale(1.05);box-shadow:0 10px 24px rgba(16,20,29,.18)}
+.popup-actions{display:flex;gap:8px;margin-top:10px}
+.mini-btn{border:1px solid rgba(20,50,62,.12);background:#fff;color:#14323e;border-radius:10px;padding:7px 10px;font:700 12px/1 Inter,system-ui,sans-serif;cursor:pointer}
+.mini-btn:hover{background:#f7f5f0}

@@ -1,5 +1,5 @@
 const FC = {
-  version: '3.1',
+  version: '3.2',
   solarisCenter: {lat:-18.730470875, lng:-47.52458722333333},
   geofenceMeters: 1600,
   lots: [
